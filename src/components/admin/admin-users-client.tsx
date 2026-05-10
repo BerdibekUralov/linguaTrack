@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { Users, UserPlus, Shield, GraduationCap, BookOpen, ToggleLeft, ToggleRight, X, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Users, UserPlus, Shield, GraduationCap, BookOpen,
+  ToggleLeft, ToggleRight, X, Loader2, CheckCircle,
+  AlertCircle, Pencil, Trash2, Eye, EyeOff,
+} from "lucide-react";
 
 interface User {
   id: string;
@@ -12,6 +16,8 @@ interface User {
   createdAt: string;
   _count: { submissions: number };
 }
+
+type ModalMode = "create" | "edit";
 
 const ROLE_META = {
   ADMIN:   { label: "Admin",   icon: Shield,        bg: "#ede9fe", color: "#7c3aed" },
@@ -39,18 +45,34 @@ function Toast({ msg, type, onDone }: { msg: string; type: "success" | "error"; 
   );
 }
 
-export function AdminUsersClient() {
-  const [users, setUsers]         = useState<User[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [showForm, setShowForm]   = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast]         = useState<{ msg: string; type: "success" | "error" } | null>(null);
-  const [filter, setFilter]       = useState<"ALL" | "ADMIN" | "TEACHER" | "STUDENT">("ALL");
+interface FormState {
+  name: string;
+  email: string;
+  password: string;
+  role: "STUDENT" | "TEACHER" | "ADMIN";
+}
 
-  const nameRef     = useRef<HTMLInputElement>(null);
-  const emailRef    = useRef<HTMLInputElement>(null);
-  const passwordRef = useRef<HTMLInputElement>(null);
-  const roleRef     = useRef<HTMLSelectElement>(null);
+const EMPTY_FORM: FormState = { name: "", email: "", password: "", role: "STUDENT" };
+
+export function AdminUsersClient() {
+  const [users, setUsers]             = useState<User[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [filter, setFilter]           = useState<"ALL" | "ADMIN" | "TEACHER" | "STUDENT">("ALL");
+
+  const [modalMode, setModalMode]     = useState<ModalMode>("create");
+  const [editTarget, setEditTarget]   = useState<User | null>(null);
+  const [showModal, setShowModal]     = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [form, setForm]               = useState<FormState>(EMPTY_FORM);
+  const [submitting, setSubmitting]   = useState(false);
+  const [formError, setFormError]     = useState("");
+
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [deleting, setDeleting]         = useState(false);
+
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (msg: string, type: "success" | "error") => setToast({ msg, type });
 
   const loadUsers = async () => {
     setLoading(true);
@@ -62,40 +84,79 @@ export function AdminUsersClient() {
 
   useEffect(() => { void loadUsers(); }, []);
 
-  const showToast = (msg: string, type: "success" | "error") => setToast({ msg, type });
+  /* ── Open modals ─────────────────────────────────────────────── */
+  const openCreate = () => {
+    setModalMode("create");
+    setEditTarget(null);
+    setForm(EMPTY_FORM);
+    setFormError("");
+    setShowPassword(false);
+    setShowModal(true);
+  };
 
+  const openEdit = (user: User) => {
+    setModalMode("edit");
+    setEditTarget(user);
+    setForm({ name: user.name, email: user.email, password: "", role: user.role });
+    setFormError("");
+    setShowPassword(false);
+    setShowModal(true);
+  };
+
+  const closeModal = () => setShowModal(false);
+
+  /* ── Create ──────────────────────────────────────────────────── */
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const name     = nameRef.current?.value.trim() ?? "";
-    const email    = emailRef.current?.value.trim() ?? "";
-    const password = passwordRef.current?.value ?? "";
-    const role     = roleRef.current?.value ?? "STUDENT";
-
-    if (!name || !email || !password) return;
-
+    if (!form.name || !form.email || !form.password) return;
     setSubmitting(true);
+    setFormError("");
     try {
       const res = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify(form),
       });
       const data = await res.json() as { error?: string };
-      if (!res.ok) { showToast(data.error ?? "Failed to create user", "error"); return; }
-
-      showToast(`User "${name}" created successfully`, "success");
-      setShowForm(false);
+      if (!res.ok) { setFormError(data.error ?? "Failed"); return; }
+      showToast(`User "${form.name}" created`, "success");
+      closeModal();
       await loadUsers();
-    } catch { showToast("Network error", "error"); }
+    } catch { setFormError("Network error"); }
     finally { setSubmitting(false); }
   };
 
-  const toggleActive = async (userId: string, isActive: boolean) => {
+  /* ── Edit ────────────────────────────────────────────────────── */
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTarget) return;
+    setSubmitting(true);
+    setFormError("");
     try {
-      const res = await fetch("/api/admin/users", {
+      const body: Partial<FormState> = { name: form.name, email: form.email, role: form.role };
+      if (form.password) body.password = form.password;
+
+      const res = await fetch(`/api/admin/users/${editTarget.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, isActive: !isActive }),
+        body: JSON.stringify(body),
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) { setFormError(data.error ?? "Failed"); return; }
+      showToast(`User "${form.name}" updated`, "success");
+      closeModal();
+      await loadUsers();
+    } catch { setFormError("Network error"); }
+    finally { setSubmitting(false); }
+  };
+
+  /* ── Toggle active ───────────────────────────────────────────── */
+  const toggleActive = async (userId: string, isActive: boolean) => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !isActive }),
       });
       const data = await res.json() as { error?: string };
       if (!res.ok) { showToast(data.error ?? "Failed", "error"); return; }
@@ -104,14 +165,32 @@ export function AdminUsersClient() {
     } catch { showToast("Network error", "error"); }
   };
 
-  const filtered = filter === "ALL" ? users : users.filter((u) => u.role === filter);
+  /* ── Delete ──────────────────────────────────────────────────── */
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/users/${deleteTarget.id}`, { method: "DELETE" });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) { showToast(data.error ?? "Failed to delete", "error"); return; }
+      showToast(`User "${deleteTarget.name}" deleted`, "success");
+      setDeleteTarget(null);
+      await loadUsers();
+    } catch { showToast("Network error", "error"); }
+    finally { setDeleting(false); }
+  };
 
+  /* ── Filtered list ───────────────────────────────────────────── */
+  const filtered = filter === "ALL" ? users : users.filter((u) => u.role === filter);
   const counts = {
-    ALL: users.length,
-    ADMIN: users.filter((u) => u.role === "ADMIN").length,
+    ALL:     users.length,
+    ADMIN:   users.filter((u) => u.role === "ADMIN").length,
     TEACHER: users.filter((u) => u.role === "TEACHER").length,
     STUDENT: users.filter((u) => u.role === "STUDENT").length,
   };
+
+  const inp = "w-full rounded-xl px-3 py-2.5 text-sm outline-none transition-colors";
+  const inpStyle = { background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" };
 
   return (
     <div className="space-y-6">
@@ -124,7 +203,7 @@ export function AdminUsersClient() {
           </p>
         </div>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={openCreate}
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-80"
           style={{ background: "var(--primary)", color: "#fff" }}
         >
@@ -133,7 +212,7 @@ export function AdminUsersClient() {
         </button>
       </div>
 
-      {/* Stat pills */}
+      {/* Filter pills */}
       <div className="flex flex-wrap gap-2">
         {(["ALL", "ADMIN", "TEACHER", "STUDENT"] as const).map((r) => (
           <button
@@ -142,8 +221,8 @@ export function AdminUsersClient() {
             className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all"
             style={{
               background: filter === r ? "var(--primary)" : "var(--surface)",
-              color: filter === r ? "#fff" : "var(--text-2)",
-              border: `1px solid ${filter === r ? "var(--primary)" : "var(--border)"}`,
+              color:      filter === r ? "#fff" : "var(--text-2)",
+              border:     `1px solid ${filter === r ? "var(--primary)" : "var(--border)"}`,
             }}
           >
             <Users className="h-3.5 w-3.5" />
@@ -152,7 +231,7 @@ export function AdminUsersClient() {
               className="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
               style={{
                 background: filter === r ? "rgba(255,255,255,0.2)" : "var(--surface-2)",
-                color: filter === r ? "#fff" : "var(--text-3)",
+                color:      filter === r ? "#fff" : "var(--text-3)",
               }}
             >
               {counts[r]}
@@ -181,11 +260,11 @@ export function AdminUsersClient() {
             return (
               <div
                 key={user.id}
-                className="flex items-center gap-4 px-5 py-4 transition-colors animate-fade-slide-up"
+                className="flex items-center gap-4 px-5 py-4 animate-fade-slide-up"
                 style={{
                   borderBottom: i < filtered.length - 1 ? "1px solid var(--border)" : undefined,
                   animationDelay: `${i * 0.03}s`,
-                  opacity: user.isActive ? 1 : 0.5,
+                  opacity: user.isActive ? 1 : 0.55,
                 }}
               >
                 {/* Avatar */}
@@ -220,89 +299,133 @@ export function AdminUsersClient() {
                   </p>
                 </div>
 
-                {/* Toggle */}
-                <button
-                  onClick={() => void toggleActive(user.id, user.isActive)}
-                  className="shrink-0 transition-opacity hover:opacity-70"
-                  title={user.isActive ? "Deactivate user" : "Activate user"}
-                >
-                  {user.isActive
-                    ? <ToggleRight className="h-6 w-6" style={{ color: "var(--success)" }} />
-                    : <ToggleLeft  className="h-6 w-6" style={{ color: "var(--text-3)" }} />
-                  }
-                </button>
+                {/* Actions */}
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    onClick={() => openEdit(user)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:opacity-70"
+                    style={{ background: "var(--surface-2)", color: "var(--text-2)" }}
+                    title="Edit user"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget(user)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:opacity-70"
+                    style={{ background: "var(--danger-bg)", color: "var(--danger)" }}
+                    title="Delete user"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => void toggleActive(user.id, user.isActive)}
+                    className="transition-opacity hover:opacity-70"
+                    title={user.isActive ? "Deactivate" : "Activate"}
+                  >
+                    {user.isActive
+                      ? <ToggleRight className="h-6 w-6" style={{ color: "var(--success)" }} />
+                      : <ToggleLeft  className="h-6 w-6" style={{ color: "var(--text-3)" }} />
+                    }
+                  </button>
+                </div>
               </div>
             );
           })
         )}
       </div>
 
-      {/* Create user modal */}
-      {showForm && (
-        <div className="modal-backdrop" onClick={() => setShowForm(false)}>
+      {/* Create / Edit modal — NO backdrop click to close */}
+      {showModal && (
+        <div className="modal-backdrop">
           <div
             className="animate-slide-down w-full max-w-[480px] mx-4 rounded-2xl overflow-hidden"
             style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-xl)" }}
-            onClick={(e) => e.stopPropagation()}
           >
             {/* Modal header */}
             <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border)" }}>
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "var(--primary-bg)" }}>
-                  <UserPlus className="h-4 w-4" style={{ color: "var(--primary)" }} />
+                  {modalMode === "create"
+                    ? <UserPlus className="h-4 w-4" style={{ color: "var(--primary)" }} />
+                    : <Pencil   className="h-4 w-4" style={{ color: "var(--primary)" }} />
+                  }
                 </div>
-                <h2 className="font-semibold" style={{ color: "var(--text)" }}>Add New User</h2>
+                <h2 className="font-semibold" style={{ color: "var(--text)" }}>
+                  {modalMode === "create" ? "Add New User" : `Edit — ${editTarget?.name}`}
+                </h2>
               </div>
-              <button onClick={() => setShowForm(false)} style={{ color: "var(--text-3)" }}>
+              <button onClick={closeModal} style={{ color: "var(--text-3)" }}>
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {/* Form */}
-            <form onSubmit={(e) => void handleCreate(e)} className="px-6 py-5 space-y-4">
+            <form
+              onSubmit={(e) => void (modalMode === "create" ? handleCreate(e) : handleEdit(e))}
+              className="px-6 py-5 space-y-4"
+            >
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium" style={{ color: "var(--text-2)" }}>Full Name</label>
                 <input
-                  ref={nameRef}
                   required
+                  value={form.name}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                   placeholder="e.g. John Smith"
-                  className="rounded-xl px-3 py-2.5 text-sm outline-none transition-colors"
-                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
+                  className={inp}
+                  style={inpStyle}
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium" style={{ color: "var(--text-2)" }}>Email Address</label>
                 <input
-                  ref={emailRef}
-                  type="email"
                   required
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
                   placeholder="user@example.com"
-                  className="rounded-xl px-3 py-2.5 text-sm outline-none transition-colors"
-                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
+                  className={inp}
+                  style={inpStyle}
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium" style={{ color: "var(--text-2)" }}>Password</label>
-                <input
-                  ref={passwordRef}
-                  type="password"
-                  required
-                  minLength={6}
-                  placeholder="At least 6 characters"
-                  className="rounded-xl px-3 py-2.5 text-sm outline-none transition-colors"
-                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
-                />
+                <label className="text-sm font-medium" style={{ color: "var(--text-2)" }}>
+                  Password
+                  {modalMode === "edit" && (
+                    <span className="ml-1.5 font-normal" style={{ color: "var(--text-3)" }}>(leave blank to keep current)</span>
+                  )}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required={modalMode === "create"}
+                    minLength={modalMode === "create" ? 6 : undefined}
+                    value={form.password}
+                    onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                    placeholder={modalMode === "create" ? "At least 6 characters" : "New password (optional)"}
+                    className={`${inp} pr-10`}
+                    style={inpStyle}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70"
+                    style={{ color: "var(--text-3)" }}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium" style={{ color: "var(--text-2)" }}>Role</label>
                 <select
-                  ref={roleRef}
-                  defaultValue="STUDENT"
-                  className="rounded-xl px-3 py-2.5 text-sm outline-none transition-colors"
-                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
+                  value={form.role}
+                  onChange={(e) => setForm((p) => ({ ...p, role: e.target.value as FormState["role"] }))}
+                  className={inp}
+                  style={inpStyle}
                 >
                   <option value="STUDENT">Student</option>
                   <option value="TEACHER">Teacher</option>
@@ -310,10 +433,16 @@ export function AdminUsersClient() {
                 </select>
               </div>
 
+              {formError && (
+                <p className="rounded-lg px-3 py-2 text-sm" style={{ background: "var(--danger-bg)", color: "var(--danger)" }}>
+                  {formError}
+                </p>
+              )}
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={closeModal}
                   className="flex-1 rounded-xl py-2.5 text-sm font-medium transition-colors"
                   style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-2)" }}
                 >
@@ -325,11 +454,57 @@ export function AdminUsersClient() {
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-opacity disabled:opacity-60"
                   style={{ background: "var(--primary)", color: "#fff" }}
                 >
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-                  {submitting ? "Creating..." : "Create User"}
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : modalMode === "create" ? <UserPlus className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+                  {submitting ? (modalMode === "create" ? "Creating..." : "Saving...") : (modalMode === "create" ? "Create User" : "Save Changes")}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal — also NO backdrop click to close */}
+      {deleteTarget && (
+        <div className="modal-backdrop">
+          <div
+            className="animate-slide-down w-full max-w-[400px] mx-4 rounded-2xl overflow-hidden"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-xl)" }}
+          >
+            <div className="px-6 py-5" style={{ borderBottom: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "var(--danger-bg)" }}>
+                  <Trash2 className="h-5 w-5" style={{ color: "var(--danger)" }} />
+                </div>
+                <div>
+                  <h2 className="font-semibold" style={{ color: "var(--text)" }}>Delete User</h2>
+                  <p className="text-xs" style={{ color: "var(--text-3)" }}>This action cannot be undone</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm" style={{ color: "var(--text-2)" }}>
+                Are you sure you want to delete <strong style={{ color: "var(--text)" }}>{deleteTarget.name}</strong>?
+                All their data (submissions, enrollments) will be permanently deleted.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-medium"
+                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-2)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void handleDelete()}
+                  disabled={deleting}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium disabled:opacity-60"
+                  style={{ background: "var(--danger)", color: "#fff" }}
+                >
+                  {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  {deleting ? "Deleting..." : "Yes, delete"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

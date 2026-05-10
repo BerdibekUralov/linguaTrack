@@ -36,7 +36,7 @@ export function SubmitForm({ assignmentId, submission, dueDate, allowLate }: Sub
       <Card>
         <CardBody className="text-center py-8">
           <Badge variant="success" className="text-sm px-4 py-1.5">Assignment submitted</Badge>
-          <p className="mt-2 text-sm text-gray-500">You have already submitted this assignment</p>
+          <p className="mt-2 text-sm" style={{ color: "var(--text-3)" }}>You have already submitted this assignment</p>
         </CardBody>
       </Card>
     );
@@ -47,7 +47,7 @@ export function SubmitForm({ assignmentId, submission, dueDate, allowLate }: Sub
       <Card>
         <CardBody className="text-center py-8">
           <Badge variant="danger" className="text-sm px-4 py-1.5">Deadline passed</Badge>
-          <p className="mt-2 text-sm text-gray-500">The submission deadline for this assignment has passed</p>
+          <p className="mt-2 text-sm" style={{ color: "var(--text-3)" }}>The submission deadline for this assignment has passed</p>
         </CardBody>
       </Card>
     );
@@ -112,7 +112,7 @@ export function SubmitForm({ assignmentId, submission, dueDate, allowLate }: Sub
   return (
     <Card>
       <CardHeader>
-        <h2 className="font-semibold text-gray-900">
+        <h2 className="font-semibold" style={{ color: "var(--text)" }}>
           {submission?.status === "DRAFT" ? "Edit your draft" : "Write your answer"}
         </h2>
         {overdue && allowLate && <Badge variant="warning">Late submission</Badge>}
@@ -125,7 +125,7 @@ export function SubmitForm({ assignmentId, submission, dueDate, allowLate }: Sub
           rows={8}
         />
 
-        {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
+        {error && <div className="rounded-lg p-3 text-sm" style={{ background: "var(--danger-bg)", color: "var(--danger)" }}>{error}</div>}
 
         <div className="flex gap-3">
           <Button variant="secondary" onClick={saveDraft} loading={loading} disabled={!content.trim()}>

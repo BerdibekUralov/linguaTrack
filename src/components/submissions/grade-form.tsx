@@ -48,15 +48,21 @@ export function GradeForm({ submissionId, maxScore, suggestedScore }: GradeFormP
   }
 
   return (
-    <div className="space-y-3 bg-blue-50 rounded-lg p-4">
-      <p className="text-sm font-medium text-blue-900">Enter score (max: {maxScore})</p>
+    <div
+      className="space-y-3 rounded-lg p-4"
+      style={{ background: "var(--primary-bg)", border: "1px solid var(--border)" }}
+    >
+      <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Enter score (max: {maxScore})</p>
 
       {suggestedScore !== undefined && (
-        <div className="flex items-center gap-2 rounded-lg bg-indigo-50 border border-indigo-100 px-3 py-2">
-          <Sparkles className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-          <p className="text-xs text-indigo-700">
+        <div
+          className="flex items-center gap-2 rounded-lg px-3 py-2"
+          style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+        >
+          <Sparkles className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--primary)" }} />
+          <p className="text-xs" style={{ color: "var(--text-2)" }}>
             Auto-calculated score:{" "}
-            <strong>{suggestedScore}/{maxScore}</strong> — you can confirm or adjust
+            <strong style={{ color: "var(--text)" }}>{suggestedScore}/{maxScore}</strong> — you can confirm or adjust
           </p>
         </div>
       )}
@@ -77,7 +83,7 @@ export function GradeForm({ submissionId, maxScore, suggestedScore }: GradeFormP
         value={feedback}
         onChange={(e) => setFeedback(e.target.value)}
       />
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>}
       <div className="flex gap-2">
         <Button size="sm" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
         <Button size="sm" loading={loading} disabled={!score} onClick={submit}>

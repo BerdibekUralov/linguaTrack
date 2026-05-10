@@ -9,15 +9,13 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Save, Trash2, AlertTriangle } from "lucide-react";
 import { SkillContentEditor } from "@/components/assignments/skill-content-editor";
 import type { SkillContent } from "@/types/skill-content";
-
-const SKILL_LABELS: Record<string, string> = {
-  WRITING: "✍️ Writing",
-  SPEAKING: "🎤 Speaking",
-  READING: "📖 Reading",
-  LISTENING: "🎧 Listening",
-  GRAMMAR: "📝 Grammar",
-  VOCABULARY: "📚 Vocabulary",
-};
+import {
+  FRAMEWORK_LABELS,
+  FRAMEWORK_LEVELS,
+  FRAMEWORK_SKILLS,
+  SKILL_LABELS,
+  type Framework,
+} from "@/types/skill-content";
 
 interface Assignment {
   id: string;
@@ -28,33 +26,49 @@ interface Assignment {
   maxScore: number;
   type: string;
   status: string;
+  framework: string;
+  level: string | null;
   skillType: string;
   skillContent: unknown;
 }
 
 export function EditAssignmentForm({ assignment }: { assignment: Assignment }) {
   const router = useRouter();
+
+  const [framework, setFramework] = useState<Framework>((assignment.framework as Framework) ?? "GENERAL");
+  const [level, setLevel]         = useState(assignment.level ?? "");
+
   const [form, setForm] = useState({
-    title: assignment.title,
+    title:       assignment.title,
     description: assignment.description ?? "",
     instructions: assignment.instructions ?? "",
-    maxScore: assignment.maxScore.toString(),
-    type: assignment.type,
-    skillType: assignment.skillType ?? "WRITING",
-    dueDate: assignment.dueDate
+    maxScore:    assignment.maxScore.toString(),
+    type:        assignment.type,
+    skillType:   assignment.skillType ?? "WRITING",
+    dueDate:     assignment.dueDate
       ? new Date(assignment.dueDate).toISOString().slice(0, 16)
       : "",
   });
   const [skillContent, setSkillContent] = useState<SkillContent | null>(
     (assignment.skillContent as SkillContent) ?? null
   );
-  const [loading, setLoading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading]           = useState(false);
+  const [deleting, setDeleting]         = useState(false);
+  const [error, setError]               = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const set = (key: keyof typeof form, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleFrameworkChange = (f: Framework) => {
+    setFramework(f);
+    setLevel("");
+    const skills = FRAMEWORK_SKILLS[f];
+    if (!skills.includes(form.skillType)) {
+      set("skillType", skills[0]);
+      setSkillContent(null);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,13 +80,15 @@ export function EditAssignmentForm({ assignment }: { assignment: Assignment }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          framework,
+          level: level || null,
           maxScore: Number(form.maxScore),
           dueDate: form.dueDate || null,
           skillContent: form.skillType === "WRITING" ? null : skillContent,
         }),
       });
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json() as { error?: string };
         setError(data.error ?? "Something went wrong");
         return;
       }
@@ -96,8 +112,57 @@ export function EditAssignmentForm({ assignment }: { assignment: Assignment }) {
     }
   };
 
+  const availableSkills = FRAMEWORK_SKILLS[framework];
+  const levels          = FRAMEWORK_LEVELS[framework];
+
   return (
     <form onSubmit={handleSave} className="space-y-6">
+      {/* Framework */}
+      <Card>
+        <CardBody className="space-y-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium" style={{ color: "var(--text-2)" }}>Framework</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(Object.keys(FRAMEWORK_LABELS) as Framework[]).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => handleFrameworkChange(f)}
+                  className="rounded-xl border-2 px-3 py-2 text-xs font-medium transition"
+                  style={{
+                    borderColor: framework === f ? "var(--primary)" : "var(--border)",
+                    background:  framework === f ? "var(--primary-bg)" : "var(--surface-2)",
+                    color:       framework === f ? "var(--primary)" : "var(--text-2)",
+                  }}
+                >
+                  {FRAMEWORK_LABELS[f]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {levels.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium" style={{ color: "var(--text-2)" }}>
+                Level <span style={{ color: "var(--text-3)" }}>(optional)</span>
+              </label>
+              <select
+                value={level}
+                onChange={(e) => setLevel(e.target.value)}
+                className="w-full rounded-xl px-3 py-2.5 text-sm outline-none transition"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
+              >
+                <option value="">— Any level —</option>
+                {levels.map((l) => (
+                  <option key={l.value} value={l.value}>{l.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      {/* Main fields */}
       <Card>
         <CardBody className="space-y-4">
           <Input
@@ -125,7 +190,7 @@ export function EditAssignmentForm({ assignment }: { assignment: Assignment }) {
           <div>
             <label className="mb-2 block text-sm font-medium" style={{ color: "var(--text-2)" }}>Skill type</label>
             <div className="grid grid-cols-3 gap-2">
-              {Object.entries(SKILL_LABELS).map(([key, label]) => (
+              {availableSkills.map((key) => (
                 <button
                   key={key}
                   type="button"
@@ -136,11 +201,11 @@ export function EditAssignmentForm({ assignment }: { assignment: Assignment }) {
                   className="rounded-xl border-2 px-3 py-2.5 text-sm font-medium transition"
                   style={{
                     borderColor: form.skillType === key ? "var(--primary)" : "var(--border)",
-                    background: form.skillType === key ? "var(--primary-bg)" : "var(--surface-2)",
-                    color: form.skillType === key ? "var(--primary)" : "var(--text-2)",
+                    background:  form.skillType === key ? "var(--primary-bg)" : "var(--surface-2)",
+                    color:       form.skillType === key ? "var(--primary)" : "var(--text-2)",
                   }}
                 >
-                  {label}
+                  {SKILL_LABELS[key]}
                 </button>
               ))}
             </div>
@@ -181,7 +246,7 @@ export function EditAssignmentForm({ assignment }: { assignment: Assignment }) {
           />
 
           {error && (
-            <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{error}</p>
+            <p className="rounded-lg px-4 py-2 text-sm" style={{ background: "var(--danger-bg)", color: "var(--danger)" }}>{error}</p>
           )}
         </CardBody>
       </Card>
@@ -193,6 +258,7 @@ export function EditAssignmentForm({ assignment }: { assignment: Assignment }) {
             {SKILL_LABELS[form.skillType]} — Content settings
           </h2>
           <SkillContentEditor
+            framework={framework}
             skillType={form.skillType}
             value={skillContent}
             onChange={setSkillContent}
@@ -205,20 +271,22 @@ export function EditAssignmentForm({ assignment }: { assignment: Assignment }) {
           <button
             type="button"
             onClick={() => setShowDeleteConfirm(true)}
-            className="flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm transition-colors"
+            style={{ borderColor: "var(--danger)", color: "var(--danger)" }}
           >
             <Trash2 className="h-4 w-4" />
             Delete
           </button>
         ) : (
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-            <span className="text-sm text-red-600">Are you sure?</span>
+            <AlertTriangle className="h-4 w-4" style={{ color: "var(--danger)" }} />
+            <span className="text-sm" style={{ color: "var(--danger)" }}>Are you sure?</span>
             <button
               type="button"
               onClick={handleDelete}
               disabled={deleting}
-              className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 transition-colors"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors"
+              style={{ background: "var(--danger)" }}
             >
               {deleting ? "..." : "Yes, delete"}
             </button>

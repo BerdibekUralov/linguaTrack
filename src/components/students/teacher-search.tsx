@@ -58,7 +58,7 @@ export function TeacherSearch({ myEnrollmentIds }: Props) {
   return (
     <div className="space-y-3">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: "var(--text-3)" }} />
         <input
           type="text"
           value={query}
@@ -68,7 +68,7 @@ export function TeacherSearch({ myEnrollmentIds }: Props) {
           style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
         />
         {loading && (
-          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
+          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin" style={{ color: "var(--text-3)" }} />
         )}
       </div>
 

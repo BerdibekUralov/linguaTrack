@@ -47,8 +47,8 @@ export function ConversationView({ initialMessages, partner, currentUserId }: Pr
       try {
         const res = await fetch(`/api/messages/${partner.id}`);
         if (res.ok) {
-          const data = await res.json();
-          setMessages(data.messages);
+          const data = await res.json() as { messages: Message[] };
+          if (Array.isArray(data.messages)) setMessages(data.messages);
         }
       } catch {
         // ignore network errors during polling
@@ -73,7 +73,7 @@ export function ConversationView({ initialMessages, partner, currentUserId }: Pr
       });
 
       if (res.ok) {
-        const newMsg = await res.json();
+        const newMsg = await res.json() as Message;
         setMessages((prev) => [...prev, newMsg]);
         setContent("");
         textareaRef.current?.focus();
@@ -95,7 +95,7 @@ export function ConversationView({ initialMessages, partner, currentUserId }: Pr
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" style={{ minHeight: 0 }}>
         {messages.length === 0 && (
-          <div className="py-12 text-center text-sm text-gray-400">
+          <div className="py-12 text-center text-sm" style={{ color: "var(--text-3)" }}>
             No messages yet. Send the first message!
           </div>
         )}
@@ -104,20 +104,28 @@ export function ConversationView({ initialMessages, partner, currentUserId }: Pr
           return (
             <div key={msg.id} className={`flex items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
               {!isMine && (
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">
+                <div
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+                  style={{ background: "var(--primary)" }}
+                >
                   {getInitials(msg.sender.name)}
                 </div>
               )}
               <div
-                className={`max-w-xs rounded-2xl px-4 py-2 text-sm lg:max-w-md ${
-                  isMine
-                    ? "bg-indigo-600 text-white rounded-br-sm"
-                    : "bg-gray-100 text-gray-900 rounded-bl-sm"
-                }`}
+                className="max-w-xs rounded-2xl px-4 py-2 text-sm lg:max-w-md"
+                style={{
+                  background: isMine ? "var(--primary)" : "var(--surface-2)",
+                  color: isMine ? "#fff" : "var(--text)",
+                  borderBottomRightRadius: isMine ? 4 : undefined,
+                  borderBottomLeftRadius: !isMine ? 4 : undefined,
+                }}
               >
                 <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                <p className={`mt-1 text-xs ${isMine ? "text-indigo-200" : "text-gray-400"}`}>
-                  {new Date(msg.createdAt).toLocaleTimeString("uz-UZ", {
+                <p
+                  className="mt-1 text-xs"
+                  style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--text-3)" }}
+                >
+                  {new Date(msg.createdAt).toLocaleTimeString("en-US", {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
@@ -130,22 +138,28 @@ export function ConversationView({ initialMessages, partner, currentUserId }: Pr
       </div>
 
       {/* Input area */}
-      <div className="border-t border-gray-100 bg-white px-4 py-3">
+      <div className="px-4 py-3" style={{ borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
         <form onSubmit={sendMessage} className="flex items-end gap-2">
           <textarea
             ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Xabar yozing... (Enter — yuborish, Shift+Enter — qator)"
+            placeholder="Type a message... (Enter — send, Shift+Enter — new line)"
             rows={1}
-            className="flex-1 resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 max-h-32"
-            style={{ fieldSizing: "content" } as React.CSSProperties}
+            className="flex-1 resize-none rounded-xl px-4 py-2.5 text-sm outline-none transition max-h-32"
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+              color: "var(--text)",
+              fieldSizing: "content",
+            } as React.CSSProperties}
           />
           <button
             type="submit"
             disabled={!content.trim() || sending}
-            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: "var(--primary)" }}
           >
             {sending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

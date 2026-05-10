@@ -26,10 +26,11 @@ export function MarkAllRead() {
     <button
       onClick={markAll}
       disabled={loading}
-      className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+      className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-colors disabled:opacity-50"
+      style={{ border: "1px solid var(--border)", color: "var(--text-2)", background: "var(--surface)" }}
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCheck className="h-4 w-4" />}
-      Barchasini o&apos;qildi deb belgilash
+      Mark all as read
     </button>
   );
 }

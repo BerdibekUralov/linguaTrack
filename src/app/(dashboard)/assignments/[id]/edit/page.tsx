@@ -18,7 +18,7 @@ export default async function EditAssignmentPage({ params }: Props) {
     select: {
       id: true, title: true, description: true, instructions: true,
       dueDate: true, maxScore: true, type: true, status: true, teacherId: true,
-      skillType: true, skillContent: true,
+      framework: true, level: true, skillType: true, skillContent: true,
     },
   });
 
@@ -28,7 +28,7 @@ export default async function EditAssignmentPage({ params }: Props) {
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Edit assignment</h1>
-        <p className="text-gray-500">{assignment.title}</p>
+        <p style={{ color: "var(--text-3)" }}>{assignment.title}</p>
       </div>
       <EditAssignmentForm assignment={assignment} />
     </div>

@@ -50,8 +50,8 @@ export function ChatModal({ open, onClose, anchorRef, currentUserId }: Props) {
     try {
       const res = await fetch(`/api/messages/${partnerId}`);
       if (res.ok) {
-        const data = await res.json() as Message[];
-        setMessages(Array.isArray(data) ? data : []);
+        const data = await res.json() as { messages: Message[] };
+        setMessages(Array.isArray(data.messages) ? data.messages : []);
       }
     } catch { /* ignore */ } finally { setLoading(false); }
   }, []);
@@ -146,7 +146,7 @@ export function ChatModal({ open, onClose, anchorRef, currentUserId }: Props) {
                   <div className="flex items-center justify-between mt-0.5">
                     <p className="text-xs truncate" style={{ color: "var(--text-3)" }}>{c.lastMessage}</p>
                     {c.unreadCount > 0 && (
-                      <span className="ml-2 shrink-0 rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                      <span className="ml-2 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ background: "var(--primary)" }}>
                         {c.unreadCount}
                       </span>
                     )}

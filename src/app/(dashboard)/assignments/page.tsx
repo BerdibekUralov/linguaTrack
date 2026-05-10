@@ -6,14 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, isOverdue } from "@/lib/utils";
 import { Plus, BookOpen, Calendar, Hash, ArrowRight } from "lucide-react";
+import { FRAMEWORK_LABELS } from "@/types/skill-content";
 
 const SKILL_META: Record<string, { label: string; emoji: string; bg: string; color: string }> = {
-  WRITING:    { label: "Writing",    emoji: "✍️",  bg: "#dbeafe", color: "#2563eb" },
-  READING:    { label: "Reading",    emoji: "📖",  bg: "#dcfce7", color: "#15803d" },
-  LISTENING:  { label: "Listening",  emoji: "🎧",  bg: "#fef3c7", color: "#92400e" },
-  GRAMMAR:    { label: "Grammar",    emoji: "📝",  bg: "#d1fae5", color: "#065f46" },
-  SPEAKING:   { label: "Speaking",   emoji: "🎤",  bg: "#ede9fe", color: "#6d28d9" },
-  VOCABULARY: { label: "Vocabulary", emoji: "📚",  bg: "#fce7f3", color: "#9d174d" },
+  WRITING:        { label: "Writing",        emoji: "✍️",  bg: "#dbeafe", color: "#2563eb" },
+  READING:        { label: "Reading",        emoji: "📖",  bg: "#dcfce7", color: "#15803d" },
+  LISTENING:      { label: "Listening",      emoji: "🎧",  bg: "#fef3c7", color: "#92400e" },
+  GRAMMAR:        { label: "Grammar",        emoji: "📝",  bg: "#d1fae5", color: "#065f46" },
+  SPEAKING:       { label: "Speaking",       emoji: "🎤",  bg: "#ede9fe", color: "#6d28d9" },
+  VOCABULARY:     { label: "Vocabulary",     emoji: "📚",  bg: "#fce7f3", color: "#9d174d" },
+  MIXED:          { label: "Mixed",          emoji: "🔀",  bg: "#e0f2fe", color: "#0369a1" },
+  USE_OF_ENGLISH: { label: "Use of English", emoji: "🔤",  bg: "#fdf4ff", color: "#7e22ce" },
 };
 
 export default async function AssignmentsPage() {
@@ -113,6 +116,15 @@ export default async function AssignmentsPage() {
                     >
                       {skill.label}
                     </span>
+                    {a.framework && a.framework !== "GENERAL" && (
+                      <span
+                        className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                        style={{ background: "var(--primary-bg)", color: "var(--primary)" }}
+                      >
+                        {FRAMEWORK_LABELS[a.framework as keyof typeof FRAMEWORK_LABELS]}
+                        {a.level ? ` · ${a.level}` : ""}
+                      </span>
+                    )}
                     {a.status === "DRAFT"  && <Badge variant="warning">Draft</Badge>}
                     {a.status === "CLOSED" && <Badge variant="default">Closed</Badge>}
                   </div>

@@ -25,6 +25,16 @@ enum AssignmentType {
   READING
 }
 
+// Framework — qaysi sertifikat/kurs tizimiga moslashgan
+enum Framework {
+  IELTS
+  CEFR
+  TOEFL
+  CAMBRIDGE
+  DUOLINGO
+  GENERAL
+}
+
 // Ko'nikma turi — har biri o'ziga mos topshirish interfeysi bilan
 enum SkillType {
   WRITING
@@ -33,6 +43,8 @@ enum SkillType {
   LISTENING
   GRAMMAR
   VOCABULARY
+  MIXED
+  USE_OF_ENGLISH
 }
 
 enum SubmissionStatus {
@@ -106,6 +118,10 @@ model Assignment {
   maxScore            Int              @default(100)
   status              AssignmentStatus @default(DRAFT)
   type                AssignmentType   @default(HOMEWORK)
+  // Framework: qaysi sertifikat/kurs tizimi (IELTS, CEFR, TOEFL...)
+  framework           Framework        @default(GENERAL)
+  // Level: framework-ga qarab (B2, 6.5, FCE, Intermediate...)
+  level               String?
   // Ko'nikma turi — topshirish interfeysini belgilaydi
   skillType           SkillType        @default(WRITING)
   // Skill-specific content: savol, so'zlar, matn, audio link va h.k.

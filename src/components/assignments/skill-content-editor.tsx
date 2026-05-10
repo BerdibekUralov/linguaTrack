@@ -4,21 +4,172 @@ import { useState } from "react";
 import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import type {
   SpeakingContent, ReadingContent, ListeningContent,
-  GrammarContent, VocabularyContent, Task, VocabWord,
+  GrammarContent, VocabularyContent, UseOfEnglishContent,
+  WritingContent, Task, VocabWord, Framework,
 } from "@/types/skill-content";
-
 import type { SkillContent } from "@/types/skill-content";
 
 interface Props {
-  skillType: string;
-  value: SkillContent | null;
-  onChange: (v: SkillContent) => void;
+  framework:  Framework;
+  skillType:  string;
+  value:      SkillContent | null;
+  onChange:   (v: SkillContent) => void;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 
-// ─── SPEAKING ─────────────────────────────────────────────────────────────────
-function SpeakingEditor({ value, onChange }: { value: SpeakingContent; onChange: (v: SpeakingContent) => void }) {
+// ─── WRITING EDITOR ───────────────────────────────────────────────────────────
+function WritingEditor({ framework, value, onChange }: {
+  framework: Framework;
+  value: WritingContent;
+  onChange: (v: WritingContent) => void;
+}) {
+  const set = (k: keyof WritingContent, v: unknown) => onChange({ ...value, [k]: v });
+
+  if (framework === "IELTS") {
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium" style={{ color: "var(--text-2)" }}>Task type</label>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              ["task1_academic", "Task 1 Academic"],
+              ["task1_general",  "Task 1 General"],
+              ["task2",          "Task 2 Essay"],
+            ] as const).map(([val, label]) => (
+              <button key={val} type="button"
+                onClick={() => set("taskType", val)}
+                className="rounded-xl border-2 py-2.5 text-sm font-medium transition"
+                style={{
+                  borderColor: value.taskType === val ? "var(--primary)" : "var(--border)",
+                  background:  value.taskType === val ? "var(--primary-bg)" : "var(--surface-2)",
+                  color:       value.taskType === val ? "var(--primary)" : "var(--text-2)",
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {value.taskType === "task1_academic" && (
+          <Field label="Graph / Chart / Diagram URL (optional)">
+            <input className={inp} placeholder="https://... (image URL)"
+              value={value.imageUrl ?? ""} onChange={(e) => set("imageUrl", e.target.value)} />
+          </Field>
+        )}
+        <div className="grid grid-cols-2 gap-4">
+          <Field label={`Word limit (min ${value.taskType === "task2" ? "250" : "150"})`}>
+            <input className={inp} type="number" placeholder={value.taskType === "task2" ? "250" : "150"}
+              value={value.wordLimit ?? ""} onChange={(e) => set("wordLimit", Number(e.target.value))} />
+          </Field>
+          <Field label="Time limit (minutes)">
+            <input className={inp} type="number" placeholder={value.taskType === "task2" ? "40" : "20"}
+              value={value.timeLimit ?? ""} onChange={(e) => set("timeLimit", Number(e.target.value))} />
+          </Field>
+        </div>
+        <Field label="Sample answer (optional — shown after grading)">
+          <textarea className={`${inp} min-h-24`} placeholder="Model answer..."
+            value={value.sampleAnswer ?? ""} onChange={(e) => set("sampleAnswer", e.target.value)} />
+        </Field>
+      </div>
+    );
+  }
+
+  if (framework === "TOEFL") {
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium" style={{ color: "var(--text-2)" }}>Task type</label>
+          <div className="grid grid-cols-2 gap-2">
+            {([["integrated", "Integrated Writing"], ["independent", "Independent Writing"]] as const).map(([val, label]) => (
+              <button key={val} type="button" onClick={() => set("toeflType", val)}
+                className="rounded-xl border-2 py-2.5 text-sm font-medium transition"
+                style={{
+                  borderColor: value.toeflType === val ? "var(--primary)" : "var(--border)",
+                  background:  value.toeflType === val ? "var(--primary-bg)" : "var(--surface-2)",
+                  color:       value.toeflType === val ? "var(--primary)" : "var(--text-2)",
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {value.toeflType === "integrated" && (
+          <>
+            <Field label="Reading passage">
+              <textarea className={`${inp} min-h-32`} placeholder="Paste the reading passage..."
+                value={value.readingPassage ?? ""} onChange={(e) => set("readingPassage", e.target.value)} />
+            </Field>
+            <Field label="Lecture audio URL">
+              <input className={inp} placeholder="https://..." value={value.audioUrl ?? ""}
+                onChange={(e) => set("audioUrl", e.target.value)} />
+            </Field>
+            <Field label="Audio transcript (optional)">
+              <textarea className={`${inp} min-h-24`} placeholder="Lecture transcript..."
+                value={value.audioScript ?? ""} onChange={(e) => set("audioScript", e.target.value)} />
+            </Field>
+          </>
+        )}
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Word limit">
+            <input className={inp} type="number" placeholder="150"
+              value={value.wordLimit ?? ""} onChange={(e) => set("wordLimit", Number(e.target.value))} />
+          </Field>
+          <Field label="Time limit (minutes)">
+            <input className={inp} type="number" placeholder={value.toeflType === "integrated" ? "20" : "30"}
+              value={value.timeLimit ?? ""} onChange={(e) => set("timeLimit", Number(e.target.value))} />
+          </Field>
+        </div>
+      </div>
+    );
+  }
+
+  // CEFR / Cambridge / General writing
+  const writingTypes = framework === "CAMBRIDGE"
+    ? ["essay", "letter", "email", "report", "review", "proposal", "article"]
+    : ["essay", "email", "letter", "report", "review", "story", "article", "proposal"];
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="mb-1.5 block text-sm font-medium" style={{ color: "var(--text-2)" }}>Writing type</label>
+        <div className="flex flex-wrap gap-2">
+          {writingTypes.map((t) => (
+            <button key={t} type="button" onClick={() => set("writingType", t)}
+              className="rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition"
+              style={{
+                borderColor: value.writingType === t ? "var(--primary)" : "var(--border)",
+                background:  value.writingType === t ? "var(--primary-bg)" : "transparent",
+                color:       value.writingType === t ? "var(--primary)" : "var(--text-2)",
+              }}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Word limit">
+          <input className={inp} type="number" placeholder="200"
+            value={value.wordLimit ?? ""} onChange={(e) => set("wordLimit", Number(e.target.value))} />
+        </Field>
+        <Field label="Time limit (minutes)">
+          <input className={inp} type="number" placeholder="45"
+            value={value.timeLimit ?? ""} onChange={(e) => set("timeLimit", Number(e.target.value))} />
+        </Field>
+      </div>
+      <Field label="Format requirements (optional)">
+        <input className={inp} placeholder="e.g. Start with Dear Sir/Madam, use formal register"
+          value={value.format ?? ""} onChange={(e) => set("format", e.target.value)} />
+      </Field>
+    </div>
+  );
+}
+
+// ─── SPEAKING EDITOR ──────────────────────────────────────────────────────────
+function SpeakingEditor({ framework, value, onChange }: {
+  framework: Framework;
+  value: SpeakingContent;
+  onChange: (v: SpeakingContent) => void;
+}) {
   const set = (k: keyof SpeakingContent, v: unknown) => onChange({ ...value, [k]: v });
   const qs = value.questions ?? [];
 
@@ -26,53 +177,88 @@ function SpeakingEditor({ value, onChange }: { value: SpeakingContent; onChange:
     <div className="space-y-4">
       <div className="flex gap-3">
         {(["live", "async"] as const).map((m) => (
-          <button key={m} type="button"
-            onClick={() => set("mode", m)}
-            className={`flex-1 rounded-xl border-2 py-3 text-sm font-medium transition ${
-              value.mode === m ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
-            }`}>
-            {m === "live" ? "🎥 Live (Google Meet)" : "🎙️ Asinxron (savollar)"}
+          <button key={m} type="button" onClick={() => set("mode", m)}
+            className="flex-1 rounded-xl border-2 py-3 text-sm font-medium transition"
+            style={{
+              borderColor: value.mode === m ? "var(--primary)" : "var(--border)",
+              background:  value.mode === m ? "var(--primary-bg)" : "transparent",
+              color:       value.mode === m ? "var(--primary)" : "var(--text-2)",
+            }}>
+            {m === "live" ? "🎥 Live (Google Meet)" : "🎙️ Async (written notes)"}
           </button>
         ))}
       </div>
 
       {value.mode === "live" && (
         <>
-          <Field label="Google Meet havolasi">
+          <Field label="Google Meet link">
             <input className={inp} placeholder="https://meet.google.com/xxx-yyyy-zzz"
               value={value.meetLink ?? ""} onChange={(e) => set("meetLink", e.target.value)} />
           </Field>
-          <Field label="Dars vaqti (ixtiyoriy)">
+          <Field label="Scheduled time (optional)">
             <input type="datetime-local" className={inp}
-              value={value.scheduledAt ?? ""}
-              onChange={(e) => set("scheduledAt", e.target.value)} />
+              value={value.scheduledAt ?? ""} onChange={(e) => set("scheduledAt", e.target.value)} />
           </Field>
         </>
       )}
 
+      {framework === "IELTS" && (
+        <label className="flex items-center gap-2 text-sm" style={{ color: "var(--text-2)" }}>
+          <input type="checkbox" checked={value.ieltsParts ?? false}
+            onChange={(e) => set("ieltsParts", e.target.checked)}
+            style={{ accentColor: "var(--primary)" }} />
+          Use IELTS Part 1 / Part 2 / Part 3 structure
+        </label>
+      )}
+
+      {(value.ieltsParts && framework === "IELTS") && (
+        <Field label="Part 2 — Cue card">
+          <textarea className={`${inp} min-h-20`}
+            placeholder="Describe a place you have visited. You should say: where it is, when you went there, what you did..."
+            value={value.cueCard ?? ""} onChange={(e) => set("cueCard", e.target.value)} />
+        </Field>
+      )}
+
+      {framework === "TOEFL" && (
+        <div>
+          <label className="mb-1.5 block text-sm font-medium" style={{ color: "var(--text-2)" }}>Task type</label>
+          <div className="grid grid-cols-2 gap-2">
+            {([["integrated", "Integrated"], ["independent", "Independent"]] as const).map(([val, label]) => (
+              <button key={val} type="button" onClick={() => set("toeflType", val)}
+                className="rounded-xl border-2 py-2 text-sm font-medium transition"
+                style={{
+                  borderColor: value.toeflType === val ? "var(--primary)" : "var(--border)",
+                  background:  value.toeflType === val ? "var(--primary-bg)" : "var(--surface-2)",
+                  color:       value.toeflType === val ? "var(--primary)" : "var(--text-2)",
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <label className="text-sm font-medium text-gray-700">
-            {value.mode === "live" ? "Lesson topics / questions" : "Questions the student needs to answer"}
+          <label className="text-sm font-medium" style={{ color: "var(--text-2)" }}>
+            {value.mode === "live" ? "Topics / questions" : "Questions to answer"}
           </label>
           <AddBtn onClick={() => set("questions", [...qs, { id: uid(), text: "", hint: "", timeLimitSec: 120 }])} />
         </div>
         {qs.map((q, i) => (
-          <div key={q.id} className="mb-3 rounded-xl border border-gray-200 p-3 space-y-2">
+          <div key={q.id} className="mb-3 rounded-xl p-3 space-y-2" style={{ border: "1px solid var(--border)" }}>
             <div className="flex gap-2">
-              <span className="mt-2.5 text-xs font-bold text-gray-400 w-5">{i + 1}.</span>
-              <input className={`${inp} flex-1`} placeholder="Savol matni..."
+              <span className="mt-2.5 text-xs font-bold w-5" style={{ color: "var(--text-3)" }}>{i + 1}.</span>
+              <input className={`${inp} flex-1`} placeholder="Question text..."
                 value={q.text} onChange={(e) => {
-                  const updated = [...qs]; updated[i] = { ...q, text: e.target.value };
-                  set("questions", updated);
+                  const u = [...qs]; u[i] = { ...q, text: e.target.value }; set("questions", u);
                 }} />
               <button type="button" onClick={() => set("questions", qs.filter((_, j) => j !== i))}
-                className="mt-1.5 text-red-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                className="mt-1.5" style={{ color: "var(--danger)" }}><Trash2 className="h-4 w-4" /></button>
             </div>
-            <input className={inp} placeholder="Yordam (hint, ixtiyoriy)..."
+            <input className={inp} placeholder="Hint (optional)..."
               value={q.hint ?? ""} onChange={(e) => {
-                const updated = [...qs]; updated[i] = { ...q, hint: e.target.value };
-                set("questions", updated);
+                const u = [...qs]; u[i] = { ...q, hint: e.target.value }; set("questions", u);
               }} />
           </div>
         ))}
@@ -81,7 +267,7 @@ function SpeakingEditor({ value, onChange }: { value: SpeakingContent; onChange:
   );
 }
 
-// ─── VOCABULARY ────────────────────────────────────────────────────────────────
+// ─── VOCABULARY EDITOR ────────────────────────────────────────────────────────
 function VocabularyEditor({ value, onChange }: { value: VocabularyContent; onChange: (v: VocabularyContent) => void }) {
   const words = value.words ?? [];
   const setWords = (w: VocabWord[]) => onChange({ ...value, words: w });
@@ -89,87 +275,78 @@ function VocabularyEditor({ value, onChange }: { value: VocabularyContent; onCha
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700">{words.length} ta so&apos;z</label>
-        <AddBtn label="So'z qo'shish" onClick={() =>
+        <label className="text-sm font-medium" style={{ color: "var(--text-2)" }}>{words.length} words</label>
+        <AddBtn label="Add word" onClick={() =>
           setWords([...words, { id: uid(), word: "", definition: "", example: "", pos: "noun" }])} />
       </div>
-
       {words.map((w, i) => (
-        <div key={w.id} className="rounded-xl border border-gray-200 p-4 space-y-2">
+        <div key={w.id} className="rounded-xl p-4 space-y-2" style={{ border: "1px solid var(--border)" }}>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-400 w-5">{i + 1}</span>
-            <input className={`${inp} flex-1 font-semibold`} placeholder="So'z (masalan: ephemeral)"
-              value={w.word} onChange={(e) => {
-                const u = [...words]; u[i] = { ...w, word: e.target.value }; setWords(u);
-              }} />
-            <select value={w.pos ?? "noun"} onChange={(e) => {
-              const u = [...words]; u[i] = { ...w, pos: e.target.value }; setWords(u);
-            }} className={`${inp} w-28`}>
+            <span className="text-xs font-bold w-5" style={{ color: "var(--text-3)" }}>{i + 1}</span>
+            <input className={`${inp} flex-1 font-semibold`} placeholder="Word (e.g. ephemeral)"
+              value={w.word} onChange={(e) => { const u = [...words]; u[i] = { ...w, word: e.target.value }; setWords(u); }} />
+            <select value={w.pos ?? "noun"}
+              onChange={(e) => { const u = [...words]; u[i] = { ...w, pos: e.target.value }; setWords(u); }}
+              className={`${inp} w-24`}>
               {["noun","verb","adj","adv","phrase","idiom"].map(p => <option key={p} value={p}>{p}</option>)}
             </select>
             <button type="button" onClick={() => setWords(words.filter((_, j) => j !== i))}
-              className="text-red-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+              style={{ color: "var(--danger)" }}><Trash2 className="h-4 w-4" /></button>
           </div>
-          <input className={inp} placeholder="Ta'rif (Definition)..."
-            value={w.definition} onChange={(e) => {
-              const u = [...words]; u[i] = { ...w, definition: e.target.value }; setWords(u);
-            }} />
-          <input className={inp} placeholder="Misol jumla (Example sentence)..."
-            value={w.example ?? ""} onChange={(e) => {
-              const u = [...words]; u[i] = { ...w, example: e.target.value }; setWords(u);
-            }} />
-          <input className={inp} placeholder="Talaffuz (masalan: /ɪˈfem.ər.əl/) — ixtiyoriy"
-            value={w.pronunciation ?? ""} onChange={(e) => {
-              const u = [...words]; u[i] = { ...w, pronunciation: e.target.value }; setWords(u);
-            }} />
+          <input className={inp} placeholder="Definition..."
+            value={w.definition} onChange={(e) => { const u = [...words]; u[i] = { ...w, definition: e.target.value }; setWords(u); }} />
+          <input className={inp} placeholder="Example sentence..."
+            value={w.example ?? ""} onChange={(e) => { const u = [...words]; u[i] = { ...w, example: e.target.value }; setWords(u); }} />
+          <input className={inp} placeholder="Pronunciation (e.g. /ɪˈfem.ər.əl/) — optional"
+            value={w.pronunciation ?? ""} onChange={(e) => { const u = [...words]; u[i] = { ...w, pronunciation: e.target.value }; setWords(u); }} />
         </div>
       ))}
     </div>
   );
 }
 
-// ─── PASSAGE + TASKS (Reading & Listening) ────────────────────────────────────
-function TasksEditor({
-  tasks, onChange,
-  header,
-}: { tasks: Task[]; onChange: (t: Task[]) => void; header?: React.ReactNode }) {
+// ─── PASSAGE + TASKS EDITOR (Reading / Listening / Grammar) ──────────────────
+function TasksEditor({ tasks, onChange }: { tasks: Task[]; onChange: (t: Task[]) => void }) {
   const [open, setOpen] = useState<string | null>(null);
-
   const addTask = (type: Task["type"]) => {
-    const t: Task = { id: uid(), type, title: type === "mcq" ? "Ko'p tanlovli" : type === "tfng" ? "True/False/NG" : type === "fill" ? "Bo'sh joy to'ldirish" : "Qisqa javob", questions: [] };
+    const titles: Record<string, string> = { mcq: "Multiple choice", tfng: "True/False/NG", fill: "Fill in blanks", short: "Short answer", transform: "Key word transformation" };
+    const t: Task = { id: uid(), type, title: titles[type] ?? type, questions: [] };
     onChange([...tasks, t]);
     setOpen(t.id);
   };
-
   const updateTask = (i: number, t: Task) => { const u = [...tasks]; u[i] = t; onChange(u); };
   const removeTask = (i: number) => onChange(tasks.filter((_, j) => j !== i));
 
   return (
     <div className="space-y-3">
-      {header}
       {tasks.map((task, ti) => (
-        <div key={task.id} className="rounded-xl border border-gray-200 overflow-hidden">
+        <div key={task.id} className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
           <button type="button" onClick={() => setOpen(open === task.id ? null : task.id)}
-            className="flex w-full items-center justify-between bg-gray-50 px-4 py-3 text-left hover:bg-gray-100">
-            <span className="text-sm font-medium">{task.title} <span className="ml-1 text-xs text-gray-400">({task.questions.length} savol)</span></span>
+            className="flex w-full items-center justify-between px-4 py-3 text-left transition"
+            style={{ background: "var(--surface-2)" }}>
+            <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
+              {task.title} <span className="ml-1 text-xs" style={{ color: "var(--text-3)" }}>({task.questions.length} questions)</span>
+            </span>
             <div className="flex items-center gap-2">
               <button type="button" onClick={(e) => { e.stopPropagation(); removeTask(ti); }}
-                className="rounded p-1 text-red-400 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></button>
-              {open === task.id ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                className="rounded p-1" style={{ color: "var(--danger)" }}><Trash2 className="h-3.5 w-3.5" /></button>
+              {open === task.id
+                ? <ChevronUp className="h-4 w-4" style={{ color: "var(--text-3)" }} />
+                : <ChevronDown className="h-4 w-4" style={{ color: "var(--text-3)" }} />}
             </div>
           </button>
 
           {open === task.id && (
             <div className="p-4 space-y-3">
-              <input className={inp} placeholder="Task sarlavhasi..." value={task.title}
-                onChange={(e) => updateTask(ti, { ...task, title: e.target.value })} />
+              <input className={inp} placeholder="Task title..."
+                value={task.title} onChange={(e) => updateTask(ti, { ...task, title: e.target.value })} />
 
               {task.questions.map((q, qi) => (
-                <div key={q.id} className="rounded-lg border border-gray-100 bg-gray-50/50 p-3 space-y-2">
+                <div key={q.id} className="rounded-lg p-3 space-y-2" style={{ border: "1px solid var(--border)", background: "var(--surface-2)" }}>
                   <div className="flex gap-2">
-                    <span className="mt-2.5 text-xs text-gray-400 w-5">{qi + 1}.</span>
+                    <span className="mt-2.5 text-xs w-5" style={{ color: "var(--text-3)" }}>{qi + 1}.</span>
                     <input className={`${inp} flex-1`}
-                      placeholder={task.type === "fill" ? "Gapni yozing, bo'sh joyga ___ qo'ying" : "Savol..."}
+                      placeholder={task.type === "fill" ? "Write sentence, put ___ for blank" : task.type === "transform" ? "Original sentence...": "Question..."}
                       value={"text" in q ? q.text : "sentence" in q ? q.sentence : ""}
                       onChange={(e) => {
                         const qs = [...task.questions] as typeof task.questions;
@@ -178,21 +355,17 @@ function TasksEditor({
                         updateTask(ti, { ...task, questions: qs });
                       }} />
                     <button type="button" onClick={() => updateTask(ti, { ...task, questions: task.questions.filter((_, j) => j !== qi) })}
-                      className="text-red-400 hover:text-red-600 mt-1"><Trash2 className="h-3.5 w-3.5" /></button>
+                      className="mt-1" style={{ color: "var(--danger)" }}><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
 
-                  {/* MCQ options */}
                   {task.type === "mcq" && "options" in q && (
                     <div className="pl-7 space-y-1">
                       {(q.options as string[]).map((opt, oi) => (
                         <div key={oi} className="flex items-center gap-2">
                           <input type="radio" name={`correct-${q.id}`} checked={q.answer === opt}
-                            onChange={() => {
-                              const qs = [...task.questions] as typeof task.questions;
-                              (qs[qi] as { answer: string }).answer = opt;
-                              updateTask(ti, { ...task, questions: qs });
-                            }} />
-                          <input className={`${inp} flex-1`} placeholder={`Variant ${String.fromCharCode(65 + oi)}...`}
+                            onChange={() => { const qs = [...task.questions] as typeof task.questions; (qs[qi] as { answer: string }).answer = opt; updateTask(ti, { ...task, questions: qs }); }}
+                            style={{ accentColor: "var(--primary)" }} />
+                          <input className={`${inp} flex-1`} placeholder={`Option ${String.fromCharCode(65 + oi)}...`}
                             value={opt} onChange={(e) => {
                               const qs = [...task.questions] as typeof task.questions;
                               const o = [...(qs[qi] as { options: string[] }).options];
@@ -203,76 +376,75 @@ function TasksEditor({
                         </div>
                       ))}
                       {(q.options as string[]).length < 5 && (
-                        <button type="button" className="text-xs text-indigo-600 hover:underline"
-                          onClick={() => {
-                            const qs = [...task.questions] as typeof task.questions;
-                            (qs[qi] as { options: string[] }).options.push("");
-                            updateTask(ti, { ...task, questions: qs });
-                          }}>+ Variant qo&apos;shish</button>
+                        <button type="button" className="text-xs hover:underline" style={{ color: "var(--primary)" }}
+                          onClick={() => { const qs = [...task.questions] as typeof task.questions; (qs[qi] as { options: string[] }).options.push(""); updateTask(ti, { ...task, questions: qs }); }}>
+                          + Add option
+                        </button>
                       )}
                     </div>
                   )}
 
-                  {/* TFNG */}
                   {task.type === "tfng" && "answer" in q && (
                     <div className="pl-7 flex gap-2">
                       {(["TRUE","FALSE","NOT GIVEN"] as const).map(ans => (
                         <button key={ans} type="button"
-                          onClick={() => {
-                            const qs = [...task.questions] as typeof task.questions;
-                            (qs[qi] as { answer: string }).answer = ans;
-                            updateTask(ti, { ...task, questions: qs });
-                          }}
-                          className={`rounded px-2 py-1 text-xs font-medium border transition ${
-                            q.answer === ans ? "border-indigo-500 bg-indigo-100 text-indigo-700" : "border-gray-200 text-gray-500"
-                          }`}>{ans}</button>
+                          onClick={() => { const qs = [...task.questions] as typeof task.questions; (qs[qi] as { answer: string }).answer = ans; updateTask(ti, { ...task, questions: qs }); }}
+                          className="rounded px-2 py-1 text-xs font-medium border transition"
+                          style={{
+                            borderColor: q.answer === ans ? "var(--primary)" : "var(--border)",
+                            background:  q.answer === ans ? "var(--primary-bg)" : "transparent",
+                            color:       q.answer === ans ? "var(--primary)" : "var(--text-2)",
+                          }}>{ans}</button>
                       ))}
                     </div>
                   )}
 
-                  {/* Fill / Short — just answer field */}
-                  {(task.type === "fill" || task.type === "short") && "answer" in q && (
+                  {(task.type === "fill" || task.type === "short" || task.type === "transform") && "answer" in q && (
                     <div className="pl-7">
-                      <input className={inp} placeholder="To'g'ri javob..."
+                      <input className={inp}
+                        placeholder={task.type === "transform" ? "Transformed sentence (keyword used)..." : "Correct answer..."}
                         value={q.answer as string}
-                        onChange={(e) => {
-                          const qs = [...task.questions] as typeof task.questions;
-                          (qs[qi] as { answer: string }).answer = e.target.value;
-                          updateTask(ti, { ...task, questions: qs });
-                        }} />
+                        onChange={(e) => { const qs = [...task.questions] as typeof task.questions; (qs[qi] as { answer: string }).answer = e.target.value; updateTask(ti, { ...task, questions: qs }); }} />
+                      {task.type === "transform" && "keyword" in q && (
+                        <input className={`${inp} mt-1`} placeholder="Keyword..."
+                          value={(q as { keyword?: string }).keyword ?? ""}
+                          onChange={(e) => { const qs = [...task.questions] as typeof task.questions; (qs[qi] as { keyword: string }).keyword = e.target.value; updateTask(ti, { ...task, questions: qs }); }} />
+                      )}
                     </div>
                   )}
                 </div>
               ))}
 
-              {/* Add question */}
               <button type="button"
                 onClick={() => {
                   const newQ =
-                    task.type === "mcq"  ? { id: uid(), text: "", options: ["", "", ""], answer: "" } :
-                    task.type === "tfng" ? { id: uid(), text: "", answer: "TRUE" as const } :
-                    task.type === "fill" ? { id: uid(), sentence: "", answer: "" } :
-                                          { id: uid(), text: "", answer: "" };
+                    task.type === "mcq"       ? { id: uid(), text: "", options: ["", "", ""], answer: "" } :
+                    task.type === "tfng"      ? { id: uid(), text: "", answer: "TRUE" as const } :
+                    task.type === "fill"      ? { id: uid(), sentence: "", answer: "" } :
+                    task.type === "transform" ? { id: uid(), sentence: "", keyword: "", answer: "" } :
+                                               { id: uid(), text: "", answer: "" };
                   updateTask(ti, { ...task, questions: [...task.questions, newQ] as Task["questions"] });
                 }}
-                className="w-full rounded-lg border border-dashed border-gray-300 py-2 text-xs text-gray-400 hover:border-indigo-400 hover:text-indigo-600 transition">
-                + Savol qo&apos;shish
+                className="w-full rounded-lg border border-dashed py-2 text-xs transition"
+                style={{ borderColor: "var(--border)", color: "var(--text-3)" }}>
+                + Add question
               </button>
             </div>
           )}
         </div>
       ))}
 
-      {/* Add task type */}
       <div className="flex flex-wrap gap-2">
         {([
-          ["tfng",  "True/False/NG"],
-          ["mcq",   "Ko'p tanlov"],
-          ["fill",  "Bo'sh to'ldirish"],
-          ["short", "Qisqa javob"],
+          ["tfng",      "True/False/NG"],
+          ["mcq",       "Multiple choice"],
+          ["fill",      "Fill in blanks"],
+          ["short",     "Short answer"],
+          ["transform", "Key word transform"],
         ] as const).map(([t, l]) => (
           <button key={t} type="button" onClick={() => addTask(t)}
-            className="rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-500 hover:border-indigo-400 hover:text-indigo-600 transition">
+            className="rounded-lg border border-dashed px-3 py-1.5 text-xs transition"
+            style={{ borderColor: "var(--border)", color: "var(--text-3)" }}>
             + {l}
           </button>
         ))}
@@ -281,18 +453,54 @@ function TasksEditor({
   );
 }
 
+// ─── USE OF ENGLISH EDITOR (Cambridge) ───────────────────────────────────────
+function UseOfEnglishEditor({ value, onChange }: { value: UseOfEnglishContent; onChange: (v: UseOfEnglishContent) => void }) {
+  const set = (k: keyof UseOfEnglishContent, v: unknown) => onChange({ ...value, [k]: v });
+  const types = [
+    ["multiple_choice_cloze",  "Multiple choice cloze"],
+    ["open_cloze",             "Open cloze"],
+    ["word_formation",         "Word formation"],
+    ["key_word_transformation","Key word transformation"],
+    ["multiple_matching",      "Multiple matching"],
+  ] as const;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="mb-1.5 block text-sm font-medium" style={{ color: "var(--text-2)" }}>Part type</label>
+        <div className="flex flex-wrap gap-2">
+          {types.map(([val, label]) => (
+            <button key={val} type="button" onClick={() => set("type", val)}
+              className="rounded-lg border px-3 py-1.5 text-xs font-medium transition"
+              style={{
+                borderColor: value.type === val ? "var(--primary)" : "var(--border)",
+                background:  value.type === val ? "var(--primary-bg)" : "transparent",
+                color:       value.type === val ? "var(--primary)" : "var(--text-2)",
+              }}>{label}</button>
+          ))}
+        </div>
+      </div>
+      <Field label="Text (with gaps if applicable)">
+        <textarea className={`${inp} min-h-32`}
+          placeholder="For open cloze: use ___ for gaps. For word formation: write [BASE WORD] in brackets."
+          value={value.text ?? ""} onChange={(e) => set("text", e.target.value)} />
+      </Field>
+      <TasksEditor tasks={value.tasks} onChange={(t) => set("tasks", t)} />
+    </div>
+  );
+}
+
 // ─── MAIN DISPATCHER ──────────────────────────────────────────────────────────
-export function SkillContentEditor({ skillType, value, onChange }: Props) {
+export function SkillContentEditor({ framework, skillType, value, onChange }: Props) {
+
   if (skillType === "WRITING") {
-    return (
-      <p className="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">
-        ✍️ Writing — the student writes and submits a text. No additional structure needed.
-      </p>
-    );
+    const v = (value as WritingContent) ?? {};
+    return <WritingEditor framework={framework} value={v} onChange={onChange as (v: WritingContent) => void} />;
   }
 
   if (skillType === "SPEAKING") {
     return <SpeakingEditor
+      framework={framework}
       value={(value as SpeakingContent) ?? { mode: "live", questions: [] }}
       onChange={onChange as (v: SpeakingContent) => void} />;
   }
@@ -303,14 +511,52 @@ export function SkillContentEditor({ skillType, value, onChange }: Props) {
       onChange={onChange as (v: VocabularyContent) => void} />;
   }
 
+  if (skillType === "USE_OF_ENGLISH") {
+    return <UseOfEnglishEditor
+      value={(value as UseOfEnglishContent) ?? { type: "multiple_choice_cloze", tasks: [] }}
+      onChange={onChange as (v: UseOfEnglishContent) => void} />;
+  }
+
   if (skillType === "READING") {
-    const v = (value as ReadingContent) ?? { passage: "", tasks: [] };
+    const v = (value as ReadingContent) ?? { passages: [{ id: uid(), text: "" }], tasks: [] };
     return (
       <div className="space-y-4">
-        <Field label="Matn (Passage)">
-          <textarea className={`${inp} min-h-40`} placeholder="IELTS formatidagi matnni kiriting..."
-            value={v.passage} onChange={(e) => onChange({ ...v, passage: e.target.value })} />
-        </Field>
+        {v.passages.map((p, i) => (
+          <div key={p.id}>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm font-medium" style={{ color: "var(--text-2)" }}>
+                {v.passages.length > 1 ? `Passage ${i + 1}` : "Reading passage"}
+              </label>
+              {v.passages.length > 1 && (
+                <button type="button" onClick={() => onChange({ ...v, passages: v.passages.filter((_, j) => j !== i) })}
+                  className="text-xs" style={{ color: "var(--danger)" }}>Remove</button>
+              )}
+            </div>
+            <input className={`${inp} mb-2`} placeholder="Passage title (optional)"
+              value={p.title ?? ""} onChange={(e) => {
+                const ps = [...v.passages]; ps[i] = { ...p, title: e.target.value };
+                onChange({ ...v, passages: ps });
+              }} />
+            <textarea className={`${inp} min-h-40`}
+              placeholder={framework === "IELTS" ? "Paste the IELTS reading passage..." : "Paste the reading text..."}
+              value={p.text} onChange={(e) => {
+                const ps = [...v.passages]; ps[i] = { ...p, text: e.target.value };
+                onChange({ ...v, passages: ps });
+              }} />
+            <input className={inp} placeholder="Source (e.g. The Guardian, 2023) — optional"
+              value={p.source ?? ""} onChange={(e) => {
+                const ps = [...v.passages]; ps[i] = { ...p, source: e.target.value };
+                onChange({ ...v, passages: ps });
+              }} />
+          </div>
+        ))}
+        {framework === "IELTS" && v.passages.length < 3 && (
+          <button type="button" onClick={() => onChange({ ...v, passages: [...v.passages, { id: uid(), text: "" }] })}
+            className="rounded-lg border border-dashed w-full py-2 text-xs transition"
+            style={{ borderColor: "var(--border)", color: "var(--text-3)" }}>
+            + Add passage {v.passages.length + 1}
+          </button>
+        )}
         <TasksEditor tasks={v.tasks} onChange={(t) => onChange({ ...v, tasks: t })} />
       </div>
     );
@@ -320,18 +566,41 @@ export function SkillContentEditor({ skillType, value, onChange }: Props) {
     const v = (value as ListeningContent) ?? { audioUrl: "", tasks: [], showTranscriptAfter: false };
     return (
       <div className="space-y-4">
-        <Field label="Audio URL (YouTube, SoundCloud, to'g'ridan-to'g'ri havola)">
+        <Field label="Audio URL (YouTube, SoundCloud, direct link)">
           <input className={inp} placeholder="https://..." value={v.audioUrl}
             onChange={(e) => onChange({ ...v, audioUrl: e.target.value })} />
         </Field>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        {framework === "IELTS" && (
+          <Field label="Section type">
+            <select className={inp} value={v.sectionType ?? ""}
+              onChange={(e) => onChange({ ...v, sectionType: e.target.value as ListeningContent["sectionType"] })}>
+              <option value="">— Select —</option>
+              <option value="section1">Section 1 — Social conversation</option>
+              <option value="section2">Section 2 — Public announcement</option>
+              <option value="section3">Section 3 — Academic discussion</option>
+              <option value="section4">Section 4 — Academic lecture</option>
+            </select>
+          </Field>
+        )}
+        {framework === "TOEFL" && (
+          <Field label="Lecture type">
+            <select className={inp} value={v.sectionType ?? ""}
+              onChange={(e) => onChange({ ...v, sectionType: e.target.value as ListeningContent["sectionType"] })}>
+              <option value="">— Select —</option>
+              <option value="conversation">Conversation</option>
+              <option value="lecture">Lecture</option>
+            </select>
+          </Field>
+        )}
+        <label className="flex items-center gap-2 text-sm" style={{ color: "var(--text-2)" }}>
           <input type="checkbox" checked={v.showTranscriptAfter}
-            onChange={(e) => onChange({ ...v, showTranscriptAfter: e.target.checked })} />
-          Topshirgandan keyin transkript ko&apos;rsatilsin
+            onChange={(e) => onChange({ ...v, showTranscriptAfter: e.target.checked })}
+            style={{ accentColor: "var(--primary)" }} />
+          Show transcript after submission
         </label>
         {v.showTranscriptAfter && (
-          <Field label="Transkript (ixtiyoriy)">
-            <textarea className={`${inp} min-h-24`} placeholder="Audio matni..."
+          <Field label="Transcript (optional)">
+            <textarea className={`${inp} min-h-24`} placeholder="Audio transcript..."
               value={v.transcript ?? ""} onChange={(e) => onChange({ ...v, transcript: e.target.value })} />
           </Field>
         )}
@@ -344,9 +613,13 @@ export function SkillContentEditor({ skillType, value, onChange }: Props) {
     const v = (value as GrammarContent) ?? { explanation: "", tasks: [] };
     return (
       <div className="space-y-4">
-        <Field label="Grammatik tushuntirish (ixtiyoriy)">
+        <Field label="Grammar point (optional)">
+          <input className={inp} placeholder="e.g. Present Perfect vs. Past Simple"
+            value={v.grammarPoint ?? ""} onChange={(e) => onChange({ ...v, grammarPoint: e.target.value })} />
+        </Field>
+        <Field label="Explanation (optional)">
           <textarea className={`${inp} min-h-24`}
-            placeholder="Qoida va misol... (masalan: Present Perfect — qachon ishlatiladi)"
+            placeholder="Rule and examples..."
             value={v.explanation ?? ""} onChange={(e) => onChange({ ...v, explanation: e.target.value })} />
         </Field>
         <TasksEditor tasks={v.tasks} onChange={(t) => onChange({ ...v, tasks: t })} />
@@ -354,25 +627,30 @@ export function SkillContentEditor({ skillType, value, onChange }: Props) {
     );
   }
 
-  return null;
+  return (
+    <div className="rounded-xl p-4 text-sm text-center" style={{ background: "var(--surface-2)", color: "var(--text-3)" }}>
+      Content editor for this skill type is coming soon.
+    </div>
+  );
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const inp = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
+const inp = "theme-inp w-full rounded-lg px-3 py-2 text-sm transition";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-gray-700">{label}</label>
+      <label className="mb-1.5 block text-sm font-medium" style={{ color: "var(--text-2)" }}>{label}</label>
       {children}
     </div>
   );
 }
 
-function AddBtn({ onClick, label = "Qo'shish" }: { onClick: () => void; label?: string }) {
+function AddBtn({ onClick, label = "Add" }: { onClick: () => void; label?: string }) {
   return (
     <button type="button" onClick={onClick}
-      className="flex items-center gap-1 rounded-lg border border-dashed border-gray-300 px-2.5 py-1 text-xs text-gray-500 hover:border-indigo-400 hover:text-indigo-600 transition">
+      className="flex items-center gap-1 rounded-lg border border-dashed px-2.5 py-1 text-xs transition"
+      style={{ borderColor: "var(--border)", color: "var(--text-3)" }}>
       <Plus className="h-3 w-3" />{label}
     </button>
   );

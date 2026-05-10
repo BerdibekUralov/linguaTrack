@@ -220,3 +220,15 @@ kbd {
   background: var(--surface);
   border: 1px solid var(--border);
 }
+
+/* Theme-aware form input — used where Tailwind utility classes can't reference CSS vars */
+.theme-inp {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.theme-inp:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-bg);
+  outline: none;
+}

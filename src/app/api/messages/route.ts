@@ -43,8 +43,10 @@ export async function GET() {
   const conversations = Array.from(convMap.values()).map((msg) => {
     const partner = msg.senderId === userId ? msg.receiver : msg.sender;
     return {
-      partner,
-      lastMessage: { content: msg.content, createdAt: msg.createdAt, isRead: msg.isRead },
+      partnerId: partner.id,
+      partnerName: partner.name,
+      lastMessage: msg.content,
+      lastAt: msg.createdAt instanceof Date ? msg.createdAt.toISOString() : String(msg.createdAt),
       unreadCount: unreadMap.get(partner.id) ?? 0,
     };
   });

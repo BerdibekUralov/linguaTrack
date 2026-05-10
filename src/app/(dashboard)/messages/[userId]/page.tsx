@@ -55,16 +55,26 @@ export default async function ConversationPage({ params }: Props) {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-gray-100 bg-white px-4 py-3">
-        <Link href="/messages" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+      <div
+        className="flex items-center gap-3 px-4 py-3"
+        style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}
+      >
+        <Link
+          href="/messages"
+          className="rounded-lg p-1.5 transition-colors"
+          style={{ color: "var(--text-3)" }}
+        >
           <ChevronLeft className="h-5 w-5" />
         </Link>
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 text-sm font-semibold">
+        <div
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+          style={{ background: "var(--primary)" }}
+        >
           {partner.name[0].toUpperCase()}
         </div>
         <div>
-          <p className="text-sm font-semibold text-gray-900">{partner.name}</p>
-          <p className="text-xs text-gray-400">{partner.role === "TEACHER" ? "O'qituvchi" : "Talaba"}</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{partner.name}</p>
+          <p className="text-xs" style={{ color: "var(--text-3)" }}>{partner.role === "TEACHER" ? "Teacher" : "Student"}</p>
         </div>
       </div>
 

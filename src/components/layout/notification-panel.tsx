@@ -18,11 +18,11 @@ interface Notification {
 interface Group { label: string; items: Notification[] }
 
 const TYPE_CONFIG: Record<string, { icon: React.ElementType; bg: string; color: string }> = {
-  NEW_ASSIGNMENT:      { icon: BookOpen,      bg: "#dbeafe", color: "#2563eb" },
-  ASSIGNMENT_GRADED:   { icon: CheckCircle,   bg: "#dcfce7", color: "#16a34a" },
-  DEADLINE_REMINDER:   { icon: AlertCircle,   bg: "#fef3c7", color: "#d97706" },
-  SUBMISSION_RECEIVED: { icon: MessageSquare, bg: "#ede9fe", color: "#7c3aed" },
-  SYSTEM:              { icon: Bell,          bg: "var(--surface-2)", color: "var(--text-3)" },
+  NEW_ASSIGNMENT:      { icon: BookOpen,      bg: "var(--primary-bg)",  color: "var(--primary)" },
+  ASSIGNMENT_GRADED:   { icon: CheckCircle,   bg: "var(--success-bg)",  color: "var(--success)" },
+  DEADLINE_REMINDER:   { icon: AlertCircle,   bg: "var(--warning-bg)",  color: "var(--warning)" },
+  SUBMISSION_RECEIVED: { icon: MessageSquare, bg: "var(--primary-bg-2)", color: "var(--accent)" },
+  SYSTEM:              { icon: Bell,          bg: "var(--surface-2)",   color: "var(--text-3)" },
 };
 
 function groupNotifications(notifs: Notification[]): Group[] {

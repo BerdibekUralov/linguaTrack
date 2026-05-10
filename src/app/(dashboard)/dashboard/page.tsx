@@ -9,6 +9,7 @@ import { ScoreChart } from "@/components/charts/score-chart";
 import {
   BookOpen, CheckCircle, Clock, AlertCircle,
   TrendingUp, Users, ArrowRight, Sparkles,
+  Shield, GraduationCap, UserCheck, UserX,
 } from "lucide-react";
 import { subDays, startOfDay, format } from "date-fns";
 
@@ -34,6 +35,131 @@ export default async function DashboardPage() {
   const role = session.user.role as string;
   const days = last7Days();
   const weekAgo = days[0].date;
+
+  /* ── ADMIN ── */
+  if (role === "ADMIN") {
+    const weekAgoDate = days[0].date;
+    const [totalUsers, totalTeachers, totalStudents, totalAdmins, activeUsers, newThisWeek, recentUsers] =
+      await Promise.all([
+        db.user.count(),
+        db.user.count({ where: { role: "TEACHER" } }),
+        db.user.count({ where: { role: "STUDENT" } }),
+        db.user.count({ where: { role: "ADMIN" } }),
+        db.user.count({ where: { isActive: true } }),
+        db.user.count({ where: { createdAt: { gte: weekAgoDate } } }),
+        db.user.findMany({
+          orderBy: { createdAt: "desc" },
+          take: 8,
+          select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+        }),
+      ]);
+
+    const inactiveUsers = totalUsers - activeUsers;
+
+    const ROLE_META = {
+      ADMIN:   { label: "Admin",   bg: "#ede9fe", color: "#7c3aed" },
+      TEACHER: { label: "Teacher", bg: "#dbeafe", color: "#2563eb" },
+      STUDENT: { label: "Student", bg: "#dcfce7", color: "#16a34a" },
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
+              {getGreeting()}, {session.user.name}! 👋
+            </h1>
+            <p className="mt-0.5 text-sm" style={{ color: "var(--text-3)" }}>Admin panel — platform overview</p>
+          </div>
+          <Link
+            href="/admin/users"
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-80"
+            style={{ background: "var(--primary)", color: "#fff" }}
+          >
+            <Users className="h-4 w-4" />
+            Manage Users
+          </Link>
+        </div>
+
+        {/* Stat cards */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <StatCard icon={Users}        label="Total users"      value={totalUsers}    color="primary" trend={null} />
+          <StatCard icon={GraduationCap} label="Teachers"        value={totalTeachers} color="accent"  trend={null} />
+          <StatCard icon={BookOpen}     label="Students"         value={totalStudents} color="success" trend={null} />
+          <StatCard icon={Shield}       label="Admins"           value={totalAdmins}   color="warning" trend={null} />
+        </div>
+
+        {/* Active / Inactive + New this week */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard icon={UserCheck} label="Active users"    value={activeUsers}   color="success" trend={null} />
+          <StatCard icon={UserX}     label="Inactive users"  value={inactiveUsers} color="danger"  trend={inactiveUsers > 0 ? "up" : null} />
+          <StatCard icon={Sparkles}  label="New this week"   value={newThisWeek}   color="primary" trend={newThisWeek > 0 ? "up" : null} />
+        </div>
+
+        {/* Role breakdown */}
+        <div className="rounded-2xl p-5 space-y-3" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <h2 className="font-semibold text-sm" style={{ color: "var(--text-2)" }}>Role breakdown</h2>
+          {([
+            { role: "STUDENT", count: totalStudents },
+            { role: "TEACHER", count: totalTeachers },
+            { role: "ADMIN",   count: totalAdmins },
+          ] as const).map(({ role: r, count }) => {
+            const meta = ROLE_META[r];
+            const pct  = totalUsers > 0 ? Math.round((count / totalUsers) * 100) : 0;
+            return (
+              <div key={r} className="space-y-1">
+                <div className="flex justify-between text-xs" style={{ color: "var(--text-3)" }}>
+                  <span style={{ color: meta.color, fontWeight: 600 }}>{meta.label}</span>
+                  <span>{count} ({pct}%)</span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-2)" }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: meta.color }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Recent users */}
+        <Section title="Recently joined" href="/admin/users" hrefLabel="View all">
+          {recentUsers.length === 0 ? (
+            <EmptyState icon={Users} text="No users yet" />
+          ) : (
+            recentUsers.map((u, i) => {
+              const meta = ROLE_META[u.role as keyof typeof ROLE_META];
+              return (
+                <div
+                  key={u.id}
+                  className="flex items-center gap-3 px-6 py-3.5 animate-fade-slide-up"
+                  style={{ borderBottom: "1px solid var(--border)", animationDelay: `${i * 0.03}s`, opacity: u.isActive ? 1 : 0.5 }}
+                >
+                  <div
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                    style={{ background: "var(--primary)" }}
+                  >
+                    {u.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{u.name}</p>
+                    <p className="text-xs truncate" style={{ color: "var(--text-3)" }}>{u.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: meta?.bg, color: meta?.color }}>
+                      {meta?.label ?? u.role}
+                    </span>
+                    <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
+                      {new Date(u.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </Section>
+      </div>
+    );
+  }
 
   /* ── TEACHER ── */
   if (role === "TEACHER") {

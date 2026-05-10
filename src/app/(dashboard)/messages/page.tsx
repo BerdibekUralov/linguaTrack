@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { getInitials, formatDate } from "@/lib/utils";
 import { MessageSquare } from "lucide-react";
 
@@ -79,23 +79,29 @@ export default async function MessagesPage() {
         {/* Conversation list */}
         <div className="lg:col-span-1">
           <Card>
-            <div className="border-b border-gray-100 px-4 py-3">
+            <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
               <h2 className="text-sm font-semibold" style={{ color: "var(--text-2)" }}>Conversations</h2>
             </div>
-            <div className="divide-y divide-gray-50">
+            <div>
               {conversations.length === 0 && newContacts.length === 0 && (
                 <div className="px-4 py-8 text-center">
-                  <MessageSquare className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                  <p className="text-sm text-gray-400">No messages yet</p>
+                  <MessageSquare className="mx-auto mb-2 h-8 w-8 opacity-20" style={{ color: "var(--text-3)" }} />
+                  <p className="text-sm" style={{ color: "var(--text-3)" }}>No messages yet</p>
                 </div>
               )}
               {conversations.map(({ partner, lastMsg, unread }) => (
                 <Link
                   key={partner.id}
                   href={`/messages/${partner.id}`}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-3 px-4 py-3 transition-colors"
+                  style={{ borderBottom: "1px solid var(--border)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "")}
                 >
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold text-sm">
+                  <div
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full font-semibold text-sm text-white"
+                    style={{ background: "var(--primary)" }}
+                  >
                     {partner.avatar ? (
                       <img src={partner.avatar} alt="" className="h-10 w-10 rounded-full object-cover" />
                     ) : (
@@ -104,15 +110,18 @@ export default async function MessagesPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
-                      <p className="truncate text-sm font-medium text-gray-900">{partner.name}</p>
+                      <p className="truncate text-sm font-medium" style={{ color: "var(--text)" }}>{partner.name}</p>
                       {unread > 0 && (
-                        <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-xs font-medium text-white">
+                        <span
+                          className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium text-white"
+                          style={{ background: "var(--primary)" }}
+                        >
                           {unread}
                         </span>
                       )}
                     </div>
-                    <p className="truncate text-xs text-gray-400">{lastMsg.content}</p>
-                    <p className="text-xs text-gray-300">{formatDate(lastMsg.createdAt)}</p>
+                    <p className="truncate text-xs" style={{ color: "var(--text-3)" }}>{lastMsg.content}</p>
+                    <p className="text-xs" style={{ color: "var(--text-3)", opacity: 0.7 }}>{formatDate(lastMsg.createdAt)}</p>
                   </div>
                 </Link>
               ))}
@@ -120,21 +129,29 @@ export default async function MessagesPage() {
               {/* New contacts (no messages yet) */}
               {newContacts.length > 0 && (
                 <>
-                  <div className="px-4 py-2 bg-gray-50">
-                    <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Start a new conversation</p>
+                  <div className="px-4 py-2" style={{ background: "var(--surface-2)" }}>
+                    <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-3)" }}>
+                      Start a new conversation
+                    </p>
                   </div>
                   {newContacts.map((c) => (
                     <Link
                       key={c.id}
                       href={`/messages/${c.id}`}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-3 px-4 py-3 transition-colors"
+                      style={{ borderBottom: "1px solid var(--border)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "")}
                     >
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 font-semibold text-sm">
+                      <div
+                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full font-semibold text-sm"
+                        style={{ background: "var(--surface-3)", color: "var(--text-2)" }}
+                      >
                         {getInitials(c.name)}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{c.name}</p>
-                        <p className="text-xs text-gray-400">{c.role === "TEACHER" ? "Teacher" : "Student"}</p>
+                        <p className="text-sm font-medium" style={{ color: "var(--text)" }}>{c.name}</p>
+                        <p className="text-xs" style={{ color: "var(--text-3)" }}>{c.role === "TEACHER" ? "Teacher" : "Student"}</p>
                       </div>
                     </Link>
                   ))}
@@ -146,8 +163,8 @@ export default async function MessagesPage() {
 
         {/* Empty state for desktop */}
         <div className="hidden lg:flex lg:col-span-2 items-center justify-center">
-          <div className="text-center text-gray-400">
-            <MessageSquare className="mx-auto mb-3 h-12 w-12 text-gray-200" />
+          <div className="text-center" style={{ color: "var(--text-3)" }}>
+            <MessageSquare className="mx-auto mb-3 h-12 w-12 opacity-20" />
             <p className="text-sm">Select a conversation</p>
           </div>
         </div>

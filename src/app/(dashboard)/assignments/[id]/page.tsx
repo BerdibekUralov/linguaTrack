@@ -9,16 +9,19 @@ import { SkillSubmission } from "@/components/submissions/skill-submission";
 import { GradeForm } from "@/components/submissions/grade-form";
 import { PublishButton } from "@/components/assignments/publish-button";
 import type { SkillContent } from "@/types/skill-content";
+import { FRAMEWORK_LABELS } from "@/types/skill-content";
 
 type Props = { params: Promise<{ id: string }> };
 
 const SKILL_META: Record<string, { label: string; emoji: string; bg: string; color: string }> = {
-  WRITING:    { label: "Writing",    emoji: "✍️",  bg: "#dbeafe", color: "#2563eb" },
-  READING:    { label: "Reading",    emoji: "📖",  bg: "#dcfce7", color: "#15803d" },
-  LISTENING:  { label: "Listening",  emoji: "🎧",  bg: "#fef3c7", color: "#92400e" },
-  GRAMMAR:    { label: "Grammar",    emoji: "📝",  bg: "#d1fae5", color: "#065f46" },
-  SPEAKING:   { label: "Speaking",   emoji: "🎤",  bg: "#ede9fe", color: "#6d28d9" },
-  VOCABULARY: { label: "Vocabulary", emoji: "📚",  bg: "#fce7f3", color: "#9d174d" },
+  WRITING:        { label: "Writing",        emoji: "✍️",  bg: "#dbeafe", color: "#2563eb" },
+  READING:        { label: "Reading",        emoji: "📖",  bg: "#dcfce7", color: "#15803d" },
+  LISTENING:      { label: "Listening",      emoji: "🎧",  bg: "#fef3c7", color: "#92400e" },
+  GRAMMAR:        { label: "Grammar",        emoji: "📝",  bg: "#d1fae5", color: "#065f46" },
+  SPEAKING:       { label: "Speaking",       emoji: "🎤",  bg: "#ede9fe", color: "#6d28d9" },
+  VOCABULARY:     { label: "Vocabulary",     emoji: "📚",  bg: "#fce7f3", color: "#9d174d" },
+  MIXED:          { label: "Mixed",          emoji: "🔀",  bg: "#e0f2fe", color: "#0369a1" },
+  USE_OF_ENGLISH: { label: "Use of English", emoji: "🔤",  bg: "#fdf4ff", color: "#7e22ce" },
 };
 
 export default async function AssignmentDetailPage({ params }: Props) {
@@ -119,6 +122,20 @@ export default async function AssignmentDetailPage({ params }: Props) {
             </div>
           ))}
         </div>
+        {/* Framework / level badge row */}
+        {assignment.framework && (
+          <div className="flex items-center gap-2 px-6 py-3" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-2)" }}>
+            <span className="text-xs font-medium" style={{ color: "var(--text-3)" }}>Framework:</span>
+            <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: "var(--primary-bg)", color: "var(--primary)" }}>
+              {FRAMEWORK_LABELS[assignment.framework as keyof typeof FRAMEWORK_LABELS] ?? assignment.framework}
+            </span>
+            {assignment.level && (
+              <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-2)" }}>
+                {assignment.level}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Description / instructions */}
         {(assignment.description || assignment.instructions) && (
