@@ -1,0 +1,228 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum AssignmentStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum AssignmentType {
+  HOMEWORK
+  TEST
+  PROJECT
+  READING
+}
+
+// Ko'nikma turi — har biri o'ziga mos topshirish interfeysi bilan
+enum SkillType {
+  WRITING
+  SPEAKING
+  READING
+  LISTENING
+  GRAMMAR
+  VOCABULARY
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  GRADED
+  RETURNED
+}
+
+enum NotificationType {
+  NEW_ASSIGNMENT
+  ASSIGNMENT_GRADED
+  DEADLINE_REMINDER
+  SUBMISSION_RECEIVED
+  SYSTEM
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  name          String
+  role          Role      @default(STUDENT)
+  avatar        String?
+  phone         String?
+  bio           String?
+  timezone      String    @default("Asia/Tashkent")
+  language      String    @default("uz")
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  assignmentsCreated    Assignment[]   @relation("TeacherAssignments")
+  assignmentsFor        Assignment[]   @relation("StudentAssignments")
+  submissions           Submission[]
+  grades                Grade[]        @relation("TeacherGrades")
+  notificationsReceived Notification[]
+  sentMessages          Message[]      @relation("SentMessages")
+  receivedMessages      Message[]      @relation("ReceivedMessages")
+  teacherEnrollments    Enrollment[]   @relation("TeacherEnrollments")
+  studentEnrollments    Enrollment[]   @relation("StudentEnrollments")
+  uploadedFiles         File[]
+  auditLogs             AuditLog[]
+
+  @@map("users")
+}
+
+model Enrollment {
+  id        String    @id @default(cuid())
+  studentId String
+  teacherId String
+  status    String    @default("ACTIVE")
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+
+  student User @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
+  teacher User @relation("TeacherEnrollments", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, teacherId])
+  @@map("enrollments")
+}
+
+model Assignment {
+  id                  String           @id @default(cuid())
+  title               String
+  description         String?
+  instructions        String?
+  dueDate             DateTime?
+  maxScore            Int              @default(100)
+  status              AssignmentStatus @default(DRAFT)
+  type                AssignmentType   @default(HOMEWORK)
+  // Ko'nikma turi — topshirish interfeysini belgilaydi
+  skillType           SkillType        @default(WRITING)
+  // Skill-specific content: savol, so'zlar, matn, audio link va h.k.
+  skillContent        Json?
+  teacherId           String
+  studentId           String?
+  allowLateSubmission Boolean          @default(false)
+  attachments         Json?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  teacher     User         @relation("TeacherAssignments", fields: [teacherId], references: [id], onDelete: Cascade)
+  student     User?        @relation("StudentAssignments", fields: [studentId], references: [id], onDelete: SetNull)
+  submissions Submission[]
+
+  @@map("assignments")
+}
+
+model Submission {
+  id           String           @id @default(cuid())
+  assignmentId String
+  studentId    String
+  content      String?
+  // Skill-specific structured answers (MCQ, fill-in, vocab results)
+  answers      Json?
+  // Auto-calculated score for Reading, Listening, Grammar, Vocabulary
+  autoScore    Float?
+  fileUrls     String[]         @default([])
+  audioUrl     String?
+  videoUrl     String?
+  status       SubmissionStatus @default(DRAFT)
+  submittedAt  DateTime?
+  isLate       Boolean          @default(false)
+  attempt      Int              @default(1)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  grade      Grade?
+
+  @@map("submissions")
+}
+
+model Grade {
+  id               String   @id @default(cuid())
+  submissionId     String   @unique
+  teacherId        String
+  score            Float
+  feedback         String?
+  audioFeedbackUrl String?
+  rubricScores     Json?
+  gradedAt         DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  teacher    User       @relation("TeacherGrades", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@map("grades")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  content    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  sender   User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model File {
+  id         String   @id @default(cuid())
+  url        String
+  key        String
+  name       String
+  size       Int
+  mimeType   String
+  uploadedBy String
+  entityType String?
+  entityId   String?
+  createdAt  DateTime @default(now())
+
+  uploader User @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  @@map("files")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
