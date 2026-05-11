@@ -280,25 +280,44 @@ function VocabularyEditor({ value, onChange }: { value: VocabularyContent; onCha
           setWords([...words, { id: uid(), word: "", definition: "", example: "", pos: "noun" }])} />
       </div>
       {words.map((w, i) => (
-        <div key={w.id} className="rounded-xl p-4 space-y-2" style={{ border: "1px solid var(--border)" }}>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold w-5" style={{ color: "var(--text-3)" }}>{i + 1}</span>
-            <input className={`${inp} flex-1 font-semibold`} placeholder="Word (e.g. ephemeral)"
-              value={w.word} onChange={(e) => { const u = [...words]; u[i] = { ...w, word: e.target.value }; setWords(u); }} />
+        <div key={w.id} className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+          {/* Header row */}
+          <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: "var(--primary)" }}>{i + 1}</span>
             <select value={w.pos ?? "noun"}
               onChange={(e) => { const u = [...words]; u[i] = { ...w, pos: e.target.value }; setWords(u); }}
-              className={`${inp} w-24`}>
-              {["noun","verb","adj","adv","phrase","idiom"].map(p => <option key={p} value={p}>{p}</option>)}
+              className="rounded-lg px-2 py-1 text-xs font-medium outline-none"
+              style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)" }}>
+              {["noun","verb","adjective","adverb","phrase","idiom"].map(p => <option key={p} value={p}>{p}</option>)}
             </select>
             <button type="button" onClick={() => setWords(words.filter((_, j) => j !== i))}
-              style={{ color: "var(--danger)" }}><Trash2 className="h-4 w-4" /></button>
+              className="ml-auto rounded-lg p-1 transition hover:opacity-70" style={{ color: "var(--danger)" }}>
+              <Trash2 className="h-4 w-4" />
+            </button>
           </div>
-          <input className={inp} placeholder="Definition..."
-            value={w.definition} onChange={(e) => { const u = [...words]; u[i] = { ...w, definition: e.target.value }; setWords(u); }} />
-          <input className={inp} placeholder="Example sentence..."
-            value={w.example ?? ""} onChange={(e) => { const u = [...words]; u[i] = { ...w, example: e.target.value }; setWords(u); }} />
-          <input className={inp} placeholder="Pronunciation (e.g. /ɪˈfem.ər.əl/) — optional"
-            value={w.pronunciation ?? ""} onChange={(e) => { const u = [...words]; u[i] = { ...w, pronunciation: e.target.value }; setWords(u); }} />
+          {/* Fields */}
+          <div className="p-4 space-y-2.5">
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-3)" }}>Word *</label>
+              <input className={`${inp} font-semibold text-base`} placeholder="e.g. afraid"
+                value={w.word} onChange={(e) => { const u = [...words]; u[i] = { ...w, word: e.target.value }; setWords(u); }} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-3)" }}>Definition *</label>
+              <input className={inp} placeholder="e.g. feeling fear or being scared"
+                value={w.definition} onChange={(e) => { const u = [...words]; u[i] = { ...w, definition: e.target.value }; setWords(u); }} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-3)" }}>Example sentence</label>
+              <input className={inp} placeholder="e.g. I am afraid of big dogs."
+                value={w.example ?? ""} onChange={(e) => { const u = [...words]; u[i] = { ...w, example: e.target.value }; setWords(u); }} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-3)" }}>Pronunciation — optional</label>
+              <input className={inp} placeholder="e.g. /əˈfreɪd/"
+                value={w.pronunciation ?? ""} onChange={(e) => { const u = [...words]; u[i] = { ...w, pronunciation: e.target.value }; setWords(u); }} />
+            </div>
+          </div>
         </div>
       ))}
     </div>
