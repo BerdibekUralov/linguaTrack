@@ -1,46 +1,109 @@
 "use client";
 
-import { Mic, MessageSquare, Volume2 } from "lucide-react";
+import { Mic, MessageSquare, Volume2, Video, CheckCircle } from "lucide-react";
 import type { SpeakingContent } from "@/types/skill-content";
 
 interface Props {
   content: SpeakingContent;
-  answers: Record<string, string>;
+  answers: Record<string, unknown>;
+  /** Student viewing their own submission vs teacher grading */
+  viewerRole?: "student" | "teacher";
 }
 
-export function SpeakingAnswersViewer({ content, answers }: Props) {
+export function SpeakingAnswersViewer({ content, answers, viewerRole = "teacher" }: Props) {
   const questions = content.questions ?? [];
+  const isLive    = content.mode === "live";
 
-  if (questions.length === 0) {
+  /* ── LIVE MODE ─────────────────────────────────────────────────── */
+  if (isLive) {
+    const confirmedAttendance = Object.keys(answers).length === 0 ||
+      !Object.values(answers).some((v) => typeof v === "string" && v.trim());
+
     return (
-      <p className="text-sm" style={{ color: "var(--text-3)" }}>No questions in this assignment.</p>
+      <div
+        className="flex items-start gap-3 rounded-xl p-4"
+        style={{ background: "var(--primary-bg)", border: "1px solid var(--border)" }}
+      >
+        <div
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+          style={{ background: "var(--primary)" }}
+        >
+          <Video className="h-4 w-4 text-white" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+            Live session confirmed
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-3)" }}>
+            {confirmedAttendance
+              ? viewerRole === "student"
+                ? "You confirmed attendance. The session will be conducted via video."
+                : "Student confirmed readiness for the live video session."
+              : "Student submitted notes for the session."}
+          </p>
+
+          {/* If teacher left a topic/cue card */}
+          {content.cueCard && (
+            <p className="mt-2 text-xs" style={{ color: "var(--text-2)" }}>
+              Cue card: <em>{content.cueCard}</em>
+            </p>
+          )}
+
+          {/* Any notes student may have written */}
+          {questions.length > 0 && Object.keys(answers).length > 0 && (
+            <div className="mt-3 space-y-2">
+              {questions.map((q, i) => {
+                const note = answers[q.id];
+                if (typeof note !== "string" || !note.trim()) return null;
+                return (
+                  <div key={q.id}>
+                    <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: "var(--text-3)" }}>
+                      Note for topic {i + 1}
+                    </p>
+                    <p className="text-xs rounded-lg px-3 py-2 whitespace-pre-wrap"
+                      style={{ background: "var(--surface)", color: "var(--text-2)", border: "1px solid var(--border)" }}>
+                      {note}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     );
   }
 
-  const hasAnyAnswer = questions.some(
-    (q) => answers[q.id]?.trim() || answers[`${q.id}-audio`]
+  /* ── ASYNC MODE ─────────────────────────────────────────────────── */
+  if (questions.length === 0) {
+    return <p className="text-sm" style={{ color: "var(--text-3)" }}>No questions in this assignment.</p>;
+  }
+
+  const answeredQuestions = questions.filter(
+    (q) => (typeof answers[q.id] === "string" && (answers[q.id] as string).trim()) ||
+            typeof answers[`${q.id}-audio`] === "string"
   );
 
-  if (!hasAnyAnswer) {
+  if (answeredQuestions.length === 0) {
     return (
-      <p className="text-sm" style={{ color: "var(--text-3)" }}>No answers submitted.</p>
+      <p className="text-sm" style={{ color: "var(--text-3)" }}>
+        {viewerRole === "student"
+          ? "Your answers were not recorded. Please re-submit if needed."
+          : "No answers were submitted for this assignment."}
+      </p>
     );
   }
 
   return (
     <div className="space-y-3">
       {questions.map((q, i) => {
-        const textAnswer  = answers[q.id]?.trim() ?? "";
-        const audioUrl    = answers[`${q.id}-audio`] ?? "";
+        const textAnswer = typeof answers[q.id] === "string" ? (answers[q.id] as string).trim() : "";
+        const audioUrl   = typeof answers[`${q.id}-audio`] === "string" ? answers[`${q.id}-audio`] as string : "";
 
         if (!textAnswer && !audioUrl) return null;
 
         return (
-          <div
-            key={q.id}
-            className="rounded-xl overflow-hidden"
-            style={{ border: "1px solid var(--border)" }}
-          >
+          <div key={q.id} className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
             {/* Question */}
             <div
               className="flex items-start gap-2.5 px-4 py-3"
@@ -82,18 +145,23 @@ export function SpeakingAnswersViewer({ content, answers }: Props) {
                       Voice answer
                     </span>
                   </div>
-                  <audio
-                    controls
-                    src={audioUrl}
-                    className="w-full rounded-lg"
-                    style={{ height: 40 }}
-                  />
+                  <audio controls src={audioUrl} className="w-full rounded-lg" style={{ height: 40 }} />
                 </div>
               )}
             </div>
           </div>
         );
       })}
+
+      {viewerRole === "student" && (
+        <div
+          className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm"
+          style={{ background: "var(--success-bg)", color: "var(--success)" }}
+        >
+          <CheckCircle className="h-4 w-4 shrink-0" />
+          <span>Submitted — your teacher will review and grade your answers.</span>
+        </div>
+      )}
     </div>
   );
 }

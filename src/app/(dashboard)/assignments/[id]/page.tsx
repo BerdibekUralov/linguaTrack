@@ -4,14 +4,24 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatDateTime, isOverdue } from "@/lib/utils";
-import { ArrowLeft, Calendar, Hash, User, Pencil, Clock, AlertCircle } from "lucide-react";
+import { ArrowLeft, Calendar, Hash, User, Pencil, Clock, AlertCircle, CheckCircle } from "lucide-react";
 import { SkillSubmission } from "@/components/submissions/skill-submission";
 import { GradeForm } from "@/components/submissions/grade-form";
 import { PublishButton } from "@/components/assignments/publish-button";
 import { SubmissionViewer } from "@/components/submissions/submission-viewer";
 import { SpeakingAnswersViewer } from "@/components/submissions/speaking-answers-viewer";
-import type { SpeakingContent } from "@/types/skill-content";
-import type { SkillContent } from "@/types/skill-content";
+import { StructuredAnswersViewer } from "@/components/submissions/structured-answers-viewer";
+import { VocabAnswersViewer } from "@/components/submissions/vocab-answers-viewer";
+import type {
+  SkillContent,
+  SpeakingContent,
+  ListeningContent,
+  GrammarContent,
+  ReadingContent,
+  UseOfEnglishContent,
+  VocabularyContent,
+  VocabAnswers,
+} from "@/types/skill-content";
 import { FRAMEWORK_LABELS } from "@/types/skill-content";
 
 type Props = { params: Promise<{ id: string }> };
@@ -26,6 +36,72 @@ const SKILL_META: Record<string, { label: string; emoji: string; bg: string; col
   MIXED:          { label: "Mixed",          emoji: "🔀",  bg: "#e0f2fe", color: "#0369a1" },
   USE_OF_ENGLISH: { label: "Use of English", emoji: "🔤",  bg: "#fdf4ff", color: "#7e22ce" },
 };
+
+/** Unified answer panel: renders the right viewer for every skill type */
+function AnswersPanel({
+  skillType,
+  skillContent,
+  answers,
+  content,
+  viewerRole,
+}: {
+  skillType: string;
+  skillContent: SkillContent | null;
+  answers: Record<string, unknown> | null;
+  content: string | null;
+  viewerRole: "student" | "teacher";
+}) {
+  /* ── WRITING: plain text ─────────────────────────────────── */
+  if (skillType === "WRITING") {
+    if (!content) return <p className="text-sm" style={{ color: "var(--text-3)" }}>No content submitted.</p>;
+    return <SubmissionViewer content={content} skillType={skillType} />;
+  }
+
+  /* ── SPEAKING: text + audio per question ─────────────────── */
+  if (skillType === "SPEAKING") {
+    if (!skillContent || !answers)
+      return <p className="text-sm" style={{ color: "var(--text-3)" }}>No answers submitted.</p>;
+    return (
+      <SpeakingAnswersViewer
+        content={skillContent as SpeakingContent}
+        answers={answers}
+        viewerRole={viewerRole}
+      />
+    );
+  }
+
+  /* ── VOCABULARY: quiz results ────────────────────────────── */
+  if (skillType === "VOCABULARY") {
+    if (!skillContent || !answers)
+      return <p className="text-sm" style={{ color: "var(--text-3)" }}>No answers submitted.</p>;
+    return (
+      <VocabAnswersViewer
+        content={skillContent as VocabularyContent}
+        answers={answers as unknown as VocabAnswers}
+        viewerRole={viewerRole}
+      />
+    );
+  }
+
+  /* ── TASK-BASED: Listening / Reading / Grammar / UoE ─────── */
+  const taskContent = skillContent as (ListeningContent | ReadingContent | GrammarContent | UseOfEnglishContent) | null;
+  if (
+    (skillType === "LISTENING" || skillType === "READING" || skillType === "GRAMMAR" || skillType === "USE_OF_ENGLISH") &&
+    taskContent && answers
+  ) {
+    return (
+      <StructuredAnswersViewer
+        content={taskContent}
+        answers={answers}
+        viewerRole={viewerRole}
+      />
+    );
+  }
+
+  /* ── Fallback: plain text ────────────────────────────────── */
+  if (content) return <SubmissionViewer content={content} skillType={skillType} />;
+  return <p className="text-sm" style={{ color: "var(--text-3)" }}>No answers submitted.</p>;
+}
 
 export default async function AssignmentDetailPage({ params }: Props) {
   const session = await auth();
@@ -62,7 +138,7 @@ export default async function AssignmentDetailPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      {/* Top bar */}
+      {/* ── Top bar ──────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         <Link
           href="/assignments"
@@ -89,7 +165,7 @@ export default async function AssignmentDetailPage({ params }: Props) {
         )}
       </div>
 
-      {/* Info card */}
+      {/* ── Info card ─────────────────────────────────────────── */}
       <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
         {/* Skill banner */}
         <div
@@ -112,9 +188,9 @@ export default async function AssignmentDetailPage({ params }: Props) {
         {/* Meta grid */}
         <div className="grid grid-cols-3 gap-px" style={{ borderBottom: "1px solid var(--border)", background: "var(--border)" }}>
           {[
-            { icon: Calendar, label: "Due date",   value: assignment.dueDate ? formatDate(assignment.dueDate) : "Not set" },
-            { icon: Hash,     label: "Max score",  value: `${assignment.maxScore}` },
-            { icon: User,     label: "Teacher",    value: assignment.teacher.name },
+            { icon: Calendar, label: "Due date",  value: assignment.dueDate ? formatDate(assignment.dueDate) : "Not set" },
+            { icon: Hash,     label: "Max score", value: `${assignment.maxScore}` },
+            { icon: User,     label: "Teacher",   value: assignment.teacher.name },
           ].map(({ icon: Icon, label, value }) => (
             <div key={label} className="flex items-center gap-2.5 px-5 py-3.5" style={{ background: "var(--surface)" }}>
               <Icon className="h-4 w-4 shrink-0" style={{ color: "var(--text-3)" }} />
@@ -125,7 +201,8 @@ export default async function AssignmentDetailPage({ params }: Props) {
             </div>
           ))}
         </div>
-        {/* Framework / level badge row */}
+
+        {/* Framework / level */}
         {assignment.framework && (
           <div className="flex items-center gap-2 px-6 py-3" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-2)" }}>
             <span className="text-xs font-medium" style={{ color: "var(--text-3)" }}>Framework:</span>
@@ -161,7 +238,7 @@ export default async function AssignmentDetailPage({ params }: Props) {
         )}
       </div>
 
-      {/* STUDENT: submit */}
+      {/* ── STUDENT: submit ───────────────────────────────────── */}
       {role === "STUDENT" && assignment.status === "ACTIVE" && (
         <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -191,7 +268,25 @@ export default async function AssignmentDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* STUDENT: grade result */}
+      {/* ── STUDENT: self-review (answers) ────────────────────── */}
+      {role === "STUDENT" && mySubmission?.status === "SUBMITTED" && (
+        <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+            <h2 className="font-semibold" style={{ color: "var(--text)" }}>Your submitted answers</h2>
+          </div>
+          <div className="p-6">
+            <AnswersPanel
+              skillType={skillType}
+              skillContent={skillContent}
+              answers={mySubmission.answers as Record<string, unknown> | null}
+              content={mySubmission.content}
+              viewerRole="student"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── STUDENT: grade result ─────────────────────────────── */}
       {role === "STUDENT" && mySubmission?.grade && (
         <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -219,7 +314,7 @@ export default async function AssignmentDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* TEACHER: submissions list */}
+      {/* ── TEACHER: submissions list ─────────────────────────── */}
       {role === "TEACHER" && (
         <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -240,9 +335,10 @@ export default async function AssignmentDetailPage({ params }: Props) {
               return (
                 <div
                   key={sub.id}
-                  className="px-6 py-4 space-y-3 animate-fade-slide-up"
+                  className="px-6 py-5 space-y-4 animate-fade-slide-up"
                   style={{ borderBottom: "1px solid var(--border)", animationDelay: `${i * 0.04}s` }}
                 >
+                  {/* Student header row */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div
@@ -270,34 +366,30 @@ export default async function AssignmentDetailPage({ params }: Props) {
                     </div>
                   </div>
 
-                  {/* Speaking async — show text + audio answers */}
-                  {skillType === "SPEAKING" &&
-                   skillContent &&
-                   (skillContent as SpeakingContent).mode === "async" &&
-                   sub.answers ? (
-                    <div
-                      className="rounded-xl overflow-hidden"
-                      style={{ border: "1px solid var(--border)" }}
-                    >
+                  {/* Answers panel — all skill types */}
+                  {sub.status === "SUBMITTED" && (
+                    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
                       <div
                         className="flex items-center gap-2 px-4 py-2.5"
                         style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}
                       >
-                        <span className="text-xs font-semibold" style={{ color: "var(--text-3)" }}>
-                          Speaking answers
+                        <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-3)" }}>
+                          {skillMeta.emoji} Student answers
                         </span>
                       </div>
                       <div className="p-4">
-                        <SpeakingAnswersViewer
-                          content={skillContent as SpeakingContent}
-                          answers={sub.answers as Record<string, string>}
+                        <AnswersPanel
+                          skillType={skillType}
+                          skillContent={skillContent}
+                          answers={sub.answers as Record<string, unknown> | null}
+                          content={sub.content}
+                          viewerRole="teacher"
                         />
                       </div>
                     </div>
-                  ) : sub.content ? (
-                    <SubmissionViewer content={sub.content} skillType={skillType} />
-                  ) : null}
+                  )}
 
+                  {/* Grade form — shown when pending */}
                   {sub.status === "SUBMITTED" && !sub.grade && (
                     <GradeForm
                       submissionId={sub.id}
@@ -308,8 +400,32 @@ export default async function AssignmentDetailPage({ params }: Props) {
                     />
                   )}
 
-                  {sub.grade?.feedback && (
-                    <p className="text-xs italic" style={{ color: "var(--text-3)" }}>💬 {sub.grade.feedback}</p>
+                  {/* Grade result — shown after grading */}
+                  {sub.grade && (
+                    <div
+                      className="flex items-start gap-4 rounded-xl px-4 py-3"
+                      style={{ background: "var(--success-bg)", border: "1px solid var(--success)" }}
+                    >
+                      <CheckCircle className="h-5 w-5 mt-0.5 shrink-0" style={{ color: "var(--success)" }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-base" style={{ color: "var(--success)" }}>
+                            {sub.grade.score}/{assignment.maxScore}
+                          </span>
+                          <span className="text-xs" style={{ color: "var(--success)" }}>
+                            ({Math.round((sub.grade.score / assignment.maxScore) * 100)}%)
+                          </span>
+                          <span className="text-[11px] ml-auto" style={{ color: "var(--success)" }}>
+                            {formatDateTime(sub.grade.gradedAt)}
+                          </span>
+                        </div>
+                        {sub.grade.feedback && (
+                          <p className="text-sm mt-1 whitespace-pre-wrap" style={{ color: "var(--success)" }}>
+                            💬 {sub.grade.feedback}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
               );
