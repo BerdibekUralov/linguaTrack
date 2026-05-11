@@ -8,6 +8,7 @@ import { ArrowLeft, Calendar, Hash, User, Pencil, Clock, AlertCircle } from "luc
 import { SkillSubmission } from "@/components/submissions/skill-submission";
 import { GradeForm } from "@/components/submissions/grade-form";
 import { PublishButton } from "@/components/assignments/publish-button";
+import { SubmissionViewer } from "@/components/submissions/submission-viewer";
 import type { SkillContent } from "@/types/skill-content";
 import { FRAMEWORK_LABELS } from "@/types/skill-content";
 
@@ -268,9 +269,7 @@ export default async function AssignmentDetailPage({ params }: Props) {
                   </div>
 
                   {sub.content && (
-                    <div className="rounded-xl p-3 text-sm whitespace-pre-wrap line-clamp-3" style={{ background: "var(--surface-2)", color: "var(--text-2)" }}>
-                      {sub.content}
-                    </div>
+                    <SubmissionViewer content={sub.content} skillType={skillType} />
                   )}
 
                   {sub.status === "SUBMITTED" && !sub.grade && (
