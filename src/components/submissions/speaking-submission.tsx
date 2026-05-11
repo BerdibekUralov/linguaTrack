@@ -146,7 +146,7 @@ export function SpeakingSubmission({ content, submitted, onSubmit }: Props) {
           const { url } = await res.json() as { url: string };
           audioUrls[`${qId}-audio`] = url;
         }
-      } catch { /* ignore failed uploads — text answer still submitted */ }
+      } catch (err) { console.error("Audio upload failed for", qId, err); }
     }
 
     await onSubmit({ ...notes, ...audioUrls });
