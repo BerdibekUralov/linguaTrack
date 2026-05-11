@@ -9,6 +9,8 @@ import { SkillSubmission } from "@/components/submissions/skill-submission";
 import { GradeForm } from "@/components/submissions/grade-form";
 import { PublishButton } from "@/components/assignments/publish-button";
 import { SubmissionViewer } from "@/components/submissions/submission-viewer";
+import { SpeakingAnswersViewer } from "@/components/submissions/speaking-answers-viewer";
+import type { SpeakingContent } from "@/types/skill-content";
 import type { SkillContent } from "@/types/skill-content";
 import { FRAMEWORK_LABELS } from "@/types/skill-content";
 
@@ -268,9 +270,33 @@ export default async function AssignmentDetailPage({ params }: Props) {
                     </div>
                   </div>
 
-                  {sub.content && (
+                  {/* Speaking async — show text + audio answers */}
+                  {skillType === "SPEAKING" &&
+                   skillContent &&
+                   (skillContent as SpeakingContent).mode === "async" &&
+                   sub.answers ? (
+                    <div
+                      className="rounded-xl overflow-hidden"
+                      style={{ border: "1px solid var(--border)" }}
+                    >
+                      <div
+                        className="flex items-center gap-2 px-4 py-2.5"
+                        style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}
+                      >
+                        <span className="text-xs font-semibold" style={{ color: "var(--text-3)" }}>
+                          Speaking answers
+                        </span>
+                      </div>
+                      <div className="p-4">
+                        <SpeakingAnswersViewer
+                          content={skillContent as SpeakingContent}
+                          answers={sub.answers as Record<string, string>}
+                        />
+                      </div>
+                    </div>
+                  ) : sub.content ? (
                     <SubmissionViewer content={sub.content} skillType={skillType} />
-                  )}
+                  ) : null}
 
                   {sub.status === "SUBMITTED" && !sub.grade && (
                     <GradeForm
