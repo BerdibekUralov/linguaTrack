@@ -128,20 +128,37 @@ export function ListeningSubmission({ content, submitted, onSubmit }: Props) {
     );
   }
 
+  const isPerTask = content.audioMode === "per-task";
+
   return (
     <div className="space-y-4">
-      <div className="rounded-xl p-4" style={{ background: "var(--primary-bg-2)", border: "1px solid var(--border)" }}>
-        <div className="flex items-center gap-2 mb-3">
-          <Volume2 className="h-4 w-4" style={{ color: "var(--accent)" }} />
-          <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>Listen to the audio, then answer the questions</p>
+      {/* Shared audio banner */}
+      {!isPerTask && content.audioUrl && (
+        <div className="rounded-xl p-4" style={{ background: "var(--primary-bg-2)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Volume2 className="h-4 w-4" style={{ color: "var(--accent)" }} />
+            <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>Listen to the audio, then answer the questions</p>
+          </div>
+          <AudioPlayer url={content.audioUrl} />
         </div>
-        <AudioPlayer url={content.audioUrl} />
-      </div>
+      )}
 
       {content.tasks.map((task) => (
-        <TaskForm key={task.id} task={task}
-          answers={answers[task.id] ?? {}}
-          onChange={(qId, val) => setAnswer(task.id, qId, val)} />
+        <div key={task.id} className="space-y-3">
+          {/* Per-task audio */}
+          {isPerTask && task.audioUrl && (
+            <div className="rounded-xl p-4" style={{ background: "var(--primary-bg-2)", border: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Volume2 className="h-4 w-4" style={{ color: "var(--accent)" }} />
+                <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>{task.title} — audio</p>
+              </div>
+              <AudioPlayer url={task.audioUrl} />
+            </div>
+          )}
+          <TaskForm task={task}
+            answers={answers[task.id] ?? {}}
+            onChange={(qId, val) => setAnswer(task.id, qId, val)} />
+        </div>
       ))}
 
       <div className="flex items-center justify-between">

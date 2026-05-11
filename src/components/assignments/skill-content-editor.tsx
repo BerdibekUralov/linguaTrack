@@ -325,11 +325,19 @@ function VocabularyEditor({ value, onChange }: { value: VocabularyContent; onCha
 }
 
 // ─── PASSAGE + TASKS EDITOR (Reading / Listening / Grammar) ──────────────────
-function TasksEditor({ tasks, onChange }: { tasks: Task[]; onChange: (t: Task[]) => void }) {
+function TasksEditor({ tasks, onChange, showTaskAudio = false }: {
+  tasks: Task[];
+  onChange: (t: Task[]) => void;
+  showTaskAudio?: boolean;
+}) {
   const [open, setOpen] = useState<string | null>(null);
+  const TASK_LABELS: Record<string, string> = {
+    mcq: "Multiple choice", tfng: "True/False/NG", fill: "Fill in blanks",
+    short: "Short answer", transform: "Key word transformation",
+    word_choice: "Word choice (A / B)", question_answer: "Question formation",
+  };
   const addTask = (type: Task["type"]) => {
-    const titles: Record<string, string> = { mcq: "Multiple choice", tfng: "True/False/NG", fill: "Fill in blanks", short: "Short answer", transform: "Key word transformation" };
-    const t: Task = { id: uid(), type, title: titles[type] ?? type, questions: [] };
+    const t: Task = { id: uid(), type, title: TASK_LABELS[type] ?? type, questions: [] };
     onChange([...tasks, t]);
     setOpen(t.id);
   };
@@ -360,23 +368,73 @@ function TasksEditor({ tasks, onChange }: { tasks: Task[]; onChange: (t: Task[])
               <input className={inp} placeholder="Task title..."
                 value={task.title} onChange={(e) => updateTask(ti, { ...task, title: e.target.value })} />
 
+              {showTaskAudio && (
+                <input className={inp} placeholder="Audio URL for this task..."
+                  value={task.audioUrl ?? ""}
+                  onChange={(e) => updateTask(ti, { ...task, audioUrl: e.target.value })} />
+              )}
+
+              {/* Word bank (for fill tasks) */}
+              {task.type === "fill" && (
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-3)" }}>
+                    Word bank — optional (comma-separated)
+                  </p>
+                  <input className={inp}
+                    placeholder="e.g. carry, collect, help, invite, love, stay, tidy, travel"
+                    value={(task.wordBank ?? []).join(", ")}
+                    onChange={(e) => {
+                      const words = e.target.value.split(",").map((w) => w.trim()).filter(Boolean);
+                      updateTask(ti, { ...task, wordBank: words.length ? words : undefined });
+                    }} />
+                  {(task.wordBank ?? []).length > 0 && (
+                    <p className="mt-1 text-[10px]" style={{ color: "var(--text-3)" }}>
+                      Preview: {task.wordBank!.map((w) => `• ${w}`).join("  ")}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* word_choice: hint about format */}
+              {task.type === "word_choice" && (
+                <p className="rounded-lg px-3 py-2 text-xs" style={{ background: "var(--primary-bg)", color: "var(--primary)" }}>
+                  In the sentence, write the two options as <strong>[word1/word2]</strong>.
+                  Example: <em>My cousins arrived a week [last/ago].</em>
+                </p>
+              )}
+
+              {/* question_answer: hint */}
+              {task.type === "question_answer" && (
+                <p className="rounded-lg px-3 py-2 text-xs" style={{ background: "var(--primary-bg)", color: "var(--primary)" }}>
+                  Provide the prompt (e.g. &quot;Suzy / listen / to your new song?&quot;). Students write the question AND the short answer.
+                </p>
+              )}
+
               {task.questions.map((q, qi) => (
                 <div key={q.id} className="rounded-lg p-3 space-y-2" style={{ border: "1px solid var(--border)", background: "var(--surface-2)" }}>
                   <div className="flex gap-2">
-                    <span className="mt-2.5 text-xs w-5" style={{ color: "var(--text-3)" }}>{qi + 1}.</span>
+                    <span className="mt-2.5 text-xs w-5 shrink-0" style={{ color: "var(--text-3)" }}>{qi + 1}.</span>
                     <input className={`${inp} flex-1`}
-                      placeholder={task.type === "fill" ? "Write sentence, put ___ for blank" : task.type === "transform" ? "Original sentence...": "Question..."}
-                      value={"text" in q ? q.text : "sentence" in q ? q.sentence : ""}
+                      placeholder={
+                        task.type === "fill"            ? "Sentence with ___ blank, e.g. My dad ___ coins." :
+                        task.type === "transform"       ? "Original sentence..." :
+                        task.type === "word_choice"     ? "Sentence with [opt1/opt2], e.g. arrived a week [last/ago]." :
+                        task.type === "question_answer" ? "Prompt, e.g. Suzy / listen / to your new song?" :
+                        "Question..."
+                      }
+                      value={"text" in q ? q.text : "sentence" in q ? q.sentence : "prompt" in q ? q.prompt : ""}
                       onChange={(e) => {
                         const qs = [...task.questions] as typeof task.questions;
-                        if ("text" in qs[qi]) (qs[qi] as { text: string }).text = e.target.value;
+                        if ("text" in qs[qi])   (qs[qi] as { text: string }).text = e.target.value;
                         else if ("sentence" in qs[qi]) (qs[qi] as { sentence: string }).sentence = e.target.value;
+                        else if ("prompt" in qs[qi])   (qs[qi] as { prompt: string }).prompt = e.target.value;
                         updateTask(ti, { ...task, questions: qs });
                       }} />
                     <button type="button" onClick={() => updateTask(ti, { ...task, questions: task.questions.filter((_, j) => j !== qi) })}
-                      className="mt-1" style={{ color: "var(--danger)" }}><Trash2 className="h-3.5 w-3.5" /></button>
+                      className="mt-1 shrink-0" style={{ color: "var(--danger)" }}><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
 
+                  {/* MCQ options */}
                   {task.type === "mcq" && "options" in q && (
                     <div className="pl-7 space-y-1">
                       {(q.options as string[]).map((opt, oi) => (
@@ -403,6 +461,7 @@ function TasksEditor({ tasks, onChange }: { tasks: Task[]; onChange: (t: Task[])
                     </div>
                   )}
 
+                  {/* TFNG */}
                   {task.type === "tfng" && "answer" in q && (
                     <div className="pl-7 flex gap-2">
                       {(["TRUE","FALSE","NOT GIVEN"] as const).map(ans => (
@@ -418,10 +477,11 @@ function TasksEditor({ tasks, onChange }: { tasks: Task[]; onChange: (t: Task[])
                     </div>
                   )}
 
+                  {/* Fill / Short / Transform — correct answer field */}
                   {(task.type === "fill" || task.type === "short" || task.type === "transform") && "answer" in q && (
                     <div className="pl-7">
                       <input className={inp}
-                        placeholder={task.type === "transform" ? "Transformed sentence (keyword used)..." : "Correct answer..."}
+                        placeholder={task.type === "transform" ? "Transformed sentence..." : "Correct answer..."}
                         value={q.answer as string}
                         onChange={(e) => { const qs = [...task.questions] as typeof task.questions; (qs[qi] as { answer: string }).answer = e.target.value; updateTask(ti, { ...task, questions: qs }); }} />
                       {task.type === "transform" && "keyword" in q && (
@@ -431,17 +491,59 @@ function TasksEditor({ tasks, onChange }: { tasks: Task[]; onChange: (t: Task[])
                       )}
                     </div>
                   )}
+
+                  {/* Word choice — correct answer picker */}
+                  {task.type === "word_choice" && "sentence" in q && (() => {
+                    const match = (q.sentence as string).match(/\[([^/\]]+)\/([^\]]+)\]/);
+                    const [opt1, opt2] = match ? [match[1], match[2]] : ["", ""];
+                    return opt1 && opt2 ? (
+                      <div className="pl-7 flex items-center gap-2">
+                        <span className="text-xs" style={{ color: "var(--text-3)" }}>Correct:</span>
+                        {[opt1, opt2].map((o) => (
+                          <button key={o} type="button"
+                            onClick={() => { const qs = [...task.questions] as typeof task.questions; (qs[qi] as { answer: string }).answer = o; updateTask(ti, { ...task, questions: qs }); }}
+                            className="rounded px-3 py-1 text-xs font-medium border transition"
+                            style={{
+                              borderColor: q.answer === o ? "var(--primary)" : "var(--border)",
+                              background:  q.answer === o ? "var(--primary-bg)" : "transparent",
+                              color:       q.answer === o ? "var(--primary)" : "var(--text-2)",
+                            }}>{o}</button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="pl-7 text-xs" style={{ color: "var(--text-3)" }}>Add [opt1/opt2] to the sentence to select the correct answer.</p>
+                    );
+                  })()}
+
+                  {/* Question formation — yes/no guide */}
+                  {task.type === "question_answer" && "answerYesNo" in q && (
+                    <div className="pl-7 flex items-center gap-2">
+                      <span className="text-xs" style={{ color: "var(--text-3)" }}>Expected short answer:</span>
+                      {(["yes","no"] as const).map((yn) => (
+                        <button key={yn} type="button"
+                          onClick={() => { const qs = [...task.questions] as typeof task.questions; (qs[qi] as { answerYesNo: string }).answerYesNo = yn; updateTask(ti, { ...task, questions: qs }); }}
+                          className="rounded px-3 py-1 text-xs font-medium border capitalize transition"
+                          style={{
+                            borderColor: (q as { answerYesNo?: string }).answerYesNo === yn ? "var(--primary)" : "var(--border)",
+                            background:  (q as { answerYesNo?: string }).answerYesNo === yn ? "var(--primary-bg)" : "transparent",
+                            color:       (q as { answerYesNo?: string }).answerYesNo === yn ? "var(--primary)" : "var(--text-2)",
+                          }}>{yn}</button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
 
               <button type="button"
                 onClick={() => {
                   const newQ =
-                    task.type === "mcq"       ? { id: uid(), text: "", options: ["", "", ""], answer: "" } :
-                    task.type === "tfng"      ? { id: uid(), text: "", answer: "TRUE" as const } :
-                    task.type === "fill"      ? { id: uid(), sentence: "", answer: "" } :
-                    task.type === "transform" ? { id: uid(), sentence: "", keyword: "", answer: "" } :
-                                               { id: uid(), text: "", answer: "" };
+                    task.type === "mcq"            ? { id: uid(), text: "", options: ["", "", ""], answer: "" } :
+                    task.type === "tfng"           ? { id: uid(), text: "", answer: "TRUE" as const } :
+                    task.type === "fill"           ? { id: uid(), sentence: "", answer: "" } :
+                    task.type === "transform"      ? { id: uid(), sentence: "", keyword: "", answer: "" } :
+                    task.type === "word_choice"    ? { id: uid(), sentence: "", answer: "" } :
+                    task.type === "question_answer"? { id: uid(), prompt: "", answerYesNo: "yes" as const } :
+                                                    { id: uid(), text: "", answer: "" };
                   updateTask(ti, { ...task, questions: [...task.questions, newQ] as Task["questions"] });
                 }}
                 className="w-full rounded-lg border border-dashed py-2 text-xs transition"
@@ -455,11 +557,13 @@ function TasksEditor({ tasks, onChange }: { tasks: Task[]; onChange: (t: Task[])
 
       <div className="flex flex-wrap gap-2">
         {([
-          ["tfng",      "True/False/NG"],
-          ["mcq",       "Multiple choice"],
-          ["fill",      "Fill in blanks"],
-          ["short",     "Short answer"],
-          ["transform", "Key word transform"],
+          ["tfng",           "True/False/NG"],
+          ["mcq",            "Multiple choice"],
+          ["fill",           "Fill in blanks"],
+          ["word_choice",    "Word choice (A/B)"],
+          ["question_answer","Question formation"],
+          ["short",          "Short answer"],
+          ["transform",      "Key word transform"],
         ] as const).map(([t, l]) => (
           <button key={t} type="button" onClick={() => addTask(t)}
             className="rounded-lg border border-dashed px-3 py-1.5 text-xs transition"
@@ -582,13 +686,42 @@ export function SkillContentEditor({ framework, skillType, value, onChange }: Pr
   }
 
   if (skillType === "LISTENING") {
-    const v = (value as ListeningContent) ?? { audioUrl: "", tasks: [], showTranscriptAfter: false };
+    const v = (value as ListeningContent) ?? { audioUrl: "", audioMode: "shared", tasks: [], showTranscriptAfter: false };
+    const mode = v.audioMode ?? "shared";
     return (
       <div className="space-y-4">
-        <Field label="Audio URL (YouTube, SoundCloud, direct link)">
-          <input className={inp} placeholder="https://..." value={v.audioUrl}
-            onChange={(e) => onChange({ ...v, audioUrl: e.target.value })} />
-        </Field>
+        {/* Audio mode toggle */}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium" style={{ color: "var(--text-2)" }}>Audio mode</label>
+          <div className="flex gap-2">
+            {(["shared", "per-task"] as const).map((m) => (
+              <button key={m} type="button"
+                onClick={() => onChange({ ...v, audioMode: m })}
+                className="flex-1 rounded-xl border-2 py-2.5 text-sm font-medium transition"
+                style={{
+                  borderColor: mode === m ? "var(--primary)" : "var(--border)",
+                  background:  mode === m ? "var(--primary-bg)" : "transparent",
+                  color:       mode === m ? "var(--primary)" : "var(--text-2)",
+                }}>
+                {m === "shared" ? "🎵 One shared audio" : "📂 Per-task audio"}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-xs" style={{ color: "var(--text-3)" }}>
+            {mode === "shared"
+              ? "Single audio plays for all tasks (IELTS section, podcast, etc.)"
+              : "Each task has its own audio clip (different conversations, sections)"}
+          </p>
+        </div>
+
+        {/* Shared audio URL */}
+        {mode === "shared" && (
+          <Field label="Audio URL (YouTube, SoundCloud, direct link)">
+            <input className={inp} placeholder="https://..." value={v.audioUrl}
+              onChange={(e) => onChange({ ...v, audioUrl: e.target.value })} />
+          </Field>
+        )}
+
         {framework === "IELTS" && (
           <Field label="Section type">
             <select className={inp} value={v.sectionType ?? ""}
@@ -623,7 +756,11 @@ export function SkillContentEditor({ framework, skillType, value, onChange }: Pr
               value={v.transcript ?? ""} onChange={(e) => onChange({ ...v, transcript: e.target.value })} />
           </Field>
         )}
-        <TasksEditor tasks={v.tasks} onChange={(t) => onChange({ ...v, tasks: t })} />
+        <TasksEditor
+          tasks={v.tasks}
+          onChange={(t) => onChange({ ...v, tasks: t })}
+          showTaskAudio={mode === "per-task"}
+        />
       </div>
     );
   }

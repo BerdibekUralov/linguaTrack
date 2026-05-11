@@ -93,13 +93,32 @@ export interface FillQuestion  { id: string; sentence: string; answer: string; h
 export interface ShortQuestion { id: string; text: string; answer: string; wordLimit?: number }
 export interface TransformQuestion { id: string; sentence: string; keyword?: string; answer: string }
 
-export type TaskType = "mcq" | "tfng" | "fill" | "short" | "transform" | "match";
+export type TaskType =
+  | "mcq" | "tfng" | "fill" | "short" | "transform" | "match"
+  | "word_choice"    // Sentence with [opt1/opt2] inline binary choice (Exercise D)
+  | "question_answer"; // Write question + give short answer (Exercise C)
+
+/** Word choice: sentence containing [opt1/opt2], student picks correct word */
+export interface WordChoiceQuestion {
+  id:       string;
+  sentence: string;  // contains [word1/word2] marker, e.g. "arrived a week [last/ago]."
+  answer:   string;  // the correct option
+}
+
+/** Question formation: given a prompt, student writes question + short answer */
+export interface QuestionAnswerQuestion {
+  id:     string;
+  prompt: string;    // e.g. "Suzy / listen / to your new song?"
+  answerYesNo?: "yes" | "no"; // if set, guides the expected short answer
+}
 
 export interface Task {
   id:        string;
   type:      TaskType;
   title:     string;
-  questions: (MCQQuestion | TFNGQuestion | FillQuestion | ShortQuestion | TransformQuestion)[];
+  audioUrl?: string;      // per-task audio (used when ListeningContent.audioMode === "per-task")
+  wordBank?: string[];    // word list shown above fill-in tasks (Exercise A, B)
+  questions: (MCQQuestion | TFNGQuestion | FillQuestion | ShortQuestion | TransformQuestion | WordChoiceQuestion | QuestionAnswerQuestion)[];
 }
 
 // ─── WRITING CONTENT ──────────────────────────────────────────────────────────
@@ -155,7 +174,8 @@ export interface ReadingContent {
 // ─── LISTENING CONTENT ────────────────────────────────────────────────────────
 
 export interface ListeningContent {
-  audioUrl:            string;
+  audioUrl:            string;   // shared audio URL (used when audioMode === "shared" or undefined)
+  audioMode?:          "shared" | "per-task";  // per-task: each task has its own audioUrl
   transcript?:         string;
   showTranscriptAfter: boolean;
   tasks:               Task[];
