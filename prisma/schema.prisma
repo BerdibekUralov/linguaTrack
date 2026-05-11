@@ -62,6 +62,60 @@ enum NotificationType {
   SYSTEM
 }
 
+// ─── VIDEO / LIVE LESSONS ─────────────────────────────────────────────────────
+
+enum LessonStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+  CANCELLED
+}
+
+model LiveLesson {
+  id          String       @id @default(cuid())
+  teacherId   String
+  title       String
+  description String?
+  scheduledAt DateTime
+  duration    Int          @default(60)  // minutes
+  roomUrl     String?                    // Daily.co meeting URL
+  roomName    String?                    // Daily.co room name
+  status      LessonStatus @default(SCHEDULED)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  teacher User @relation("TeacherLessons", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@map("live_lessons")
+}
+
+// ─── GAMIFICATION ─────────────────────────────────────────────────────────────
+
+enum BadgeType {
+  // Submission badges
+  FIRST_STEP        // First submission
+  SUBMISSIONS_10    // 10 submissions
+  SUBMISSIONS_50    // 50 submissions
+  // Score badges
+  PERFECT_SCORE     // 100% on any assignment
+  HIGH_ACHIEVER     // 90%+ score three times
+  // Streak badges
+  STREAK_3          // 3-day streak
+  STREAK_7          // 7-day streak
+  STREAK_30         // 30-day streak
+  // Skill badges
+  WRITING_PRO       // 5 writing assignments graded ≥70%
+  READING_PRO       // 5 reading assignments graded ≥70%
+  GRAMMAR_PRO       // 5 grammar assignments graded ≥70%
+  // Level badges
+  SCHOLAR           // Reach level 4
+  MASTER            // Reach level 6
+  LEGEND            // Reach level 8
+  // Special
+  EARLY_BIRD        // Submit 24h before deadline (3 times)
+  SPEED_DEMON       // Submit within 1h of assignment creation
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -79,6 +133,13 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Gamification
+  xp               Int       @default(0)
+  level            Int       @default(1)
+  streak           Int       @default(0)
+  longestStreak    Int       @default(0)
+  lastActivityDate DateTime?
+
   assignmentsCreated    Assignment[]   @relation("TeacherAssignments")
   assignmentsFor        Assignment[]   @relation("StudentAssignments")
   submissions           Submission[]
@@ -90,8 +151,36 @@ model User {
   studentEnrollments    Enrollment[]   @relation("StudentEnrollments")
   uploadedFiles         File[]
   auditLogs             AuditLog[]
+  userBadges            UserBadge[]
+  xpLogs                XpLog[]
+  taughtLessons         LiveLesson[] @relation("TeacherLessons")
 
   @@map("users")
+}
+
+model UserBadge {
+  id        String    @id @default(cuid())
+  userId    String
+  badge     BadgeType
+  earnedAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badge])
+  @@map("user_badges")
+}
+
+model XpLog {
+  id        String   @id @default(cuid())
+  userId    String
+  points    Int
+  reason    String   // e.g. "submission", "high_score", "streak"
+  meta      Json?    // extra context (assignmentId, score, etc.)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("xp_logs")
 }
 
 model Enrollment {

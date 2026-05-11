@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, BookOpen, FileText,
-  TrendingUp, Users, GraduationCap, X, ShieldCheck,
+  TrendingUp, Users, GraduationCap, X, ShieldCheck, Trophy, Video,
 } from "lucide-react";
+import { UserXpWidget } from "@/components/gamification/user-xp-widget";
 
 interface SidebarProps {
   role: string;
@@ -19,12 +20,14 @@ const navItems = [
   { href: "/assignments", label: "Assignments",  icon: BookOpen,         roles: ["STUDENT", "TEACHER", "ADMIN"] },
   { href: "/submissions", label: "Submissions",  icon: FileText,         roles: ["STUDENT"] },
   { href: "/progress",    label: "Progress",     icon: TrendingUp,       roles: ["STUDENT", "TEACHER", "ADMIN"] },
+  { href: "/lessons",     label: "Lessons",      icon: Video,            roles: ["STUDENT", "TEACHER"] },
+  { href: "/leaderboard", label: "Leaderboard",  icon: Trophy,           roles: ["STUDENT", "TEACHER", "ADMIN"] },
   { href: "/students",    label: "Students",     icon: Users,            roles: ["TEACHER", "ADMIN"] },
   { href: "/students",    label: "Teachers",     icon: Users,            roles: ["STUDENT"] },
   { href: "/admin/users", label: "Users",        icon: ShieldCheck,      roles: ["ADMIN"] },
 ];
 
-function NavContent({ role, name, onClose }: { role: string; name: string; onClose?: () => void }) {
+function NavContent({ role, name, onClose }: { role: string; name: string; onClose?: () => void; }) {
   const pathname = usePathname();
 
   return (
@@ -79,6 +82,9 @@ function NavContent({ role, name, onClose }: { role: string; name: string; onClo
             })}
         </div>
       </nav>
+
+      {/* XP Widget — students only */}
+      {role === "STUDENT" && <UserXpWidget />}
 
       {/* User footer */}
       <div className="px-3 py-3 shrink-0" style={{ borderTop: "1px solid var(--border)" }}>

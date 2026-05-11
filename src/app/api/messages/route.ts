@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { broadcastMessage } from "@/lib/supabase-server";
 
 const sendSchema = z.object({
   receiverId: z.string().min(1),
@@ -91,6 +92,12 @@ export async function POST(req: Request) {
       include: {
         sender: { select: { id: true, name: true, avatar: true } },
       },
+    });
+
+    // Broadcast via Supabase Realtime (fire-and-forget)
+    void broadcastMessage(senderId as string, receiverId, {
+      ...message,
+      createdAt: message.createdAt.toISOString(),
     });
 
     return NextResponse.json(message, { status: 201 });

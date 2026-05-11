@@ -3,6 +3,16 @@
 import { useState } from "react";
 import { CheckCircle, Loader2, Video, Mic, ExternalLink, Clock, MessageSquare } from "lucide-react";
 import type { SpeakingContent } from "@/types/skill-content";
+import { VideoJoinButton } from "@/components/video/video-call";
+
+function isDailyUrl(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.endsWith(".daily.co");
+  } catch {
+    return false;
+  }
+}
 
 interface Props {
   content: SpeakingContent;
@@ -65,13 +75,19 @@ export function SpeakingSubmission({ content, submitted, onSubmit }: Props) {
           )}
 
           {content.meetLink ? (
-            <a href={content.meetLink} target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition"
-              style={{ background: "var(--primary)" }}>
-              <Video className="h-4 w-4" />
-              Join Google Meet
-              <ExternalLink className="h-3.5 w-3.5 opacity-70" />
-            </a>
+            isDailyUrl(content.meetLink) ? (
+              <div className="flex justify-center">
+                <VideoJoinButton roomUrl={content.meetLink} label="Join video call" />
+              </div>
+            ) : (
+              <a href={content.meetLink} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition"
+                style={{ background: "var(--primary)" }}>
+                <Video className="h-4 w-4" />
+                Join video call
+                <ExternalLink className="h-3.5 w-3.5 opacity-70" />
+              </a>
+            )
           ) : (
             <p className="rounded-lg px-4 py-3 text-sm text-center"
               style={{ background: "var(--surface-2)", color: "var(--text-2)" }}>

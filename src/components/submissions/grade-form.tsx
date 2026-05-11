@@ -9,17 +9,25 @@ import { Sparkles } from "lucide-react";
 
 interface GradeFormProps {
   submissionId: string;
+  assignmentId: string;
   maxScore: number;
-  suggestedScore?: number; // auto-computed from answers
+  skillType?: string;
+  suggestedScore?: number;
 }
 
-export function GradeForm({ submissionId, maxScore, suggestedScore }: GradeFormProps) {
+export function GradeForm({
+  submissionId,
+  assignmentId: _assignmentId,
+  maxScore,
+  skillType: _skillType,
+  suggestedScore,
+}: GradeFormProps) {
   const router = useRouter();
-  const [score, setScore] = useState(suggestedScore !== undefined ? String(suggestedScore) : "");
+  const [score, setScore]     = useState(suggestedScore !== undefined ? String(suggestedScore) : "");
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [open, setOpen] = useState(false);
+  const [error, setError]     = useState("");
+  const [open, setOpen]       = useState(false);
 
   const submit = async () => {
     setLoading(true);
@@ -31,7 +39,7 @@ export function GradeForm({ submissionId, maxScore, suggestedScore }: GradeFormP
     });
     setLoading(false);
     if (!res.ok) {
-      const json = await res.json();
+      const json = await res.json() as { error?: string };
       setError(json.error ?? "Something went wrong");
       return;
     }
@@ -86,7 +94,7 @@ export function GradeForm({ submissionId, maxScore, suggestedScore }: GradeFormP
       {error && <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>}
       <div className="flex gap-2">
         <Button size="sm" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
-        <Button size="sm" loading={loading} disabled={!score} onClick={submit}>
+        <Button size="sm" loading={loading} disabled={!score} onClick={() => void submit()}>
           Save
         </Button>
       </div>

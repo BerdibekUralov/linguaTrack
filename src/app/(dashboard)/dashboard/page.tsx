@@ -10,7 +10,9 @@ import {
   BookOpen, CheckCircle, Clock, AlertCircle,
   TrendingUp, Users, ArrowRight, Sparkles,
   Shield, GraduationCap, UserCheck, UserX,
+  Trophy, Flame, Star,
 } from "lucide-react";
+import { getLevelInfo, BADGE_META, type BadgeType } from "@/lib/gamification";
 import { subDays, startOfDay, format } from "date-fns";
 
 function last7Days() {
@@ -270,13 +272,20 @@ export default async function DashboardPage() {
   }
 
   /* ── STUDENT ── */
-  const [total, completed, late, weeklySubmissions] = await Promise.all([
+  const [total, completed, late, weeklySubmissions, gamificationUser] = await Promise.all([
     db.assignment.count({ where: { status: "ACTIVE" } }),
     db.submission.count({ where: { studentId: userId, status: { in: ["SUBMITTED", "GRADED"] } } }),
     db.submission.count({ where: { studentId: userId, isLate: true } }),
     db.submission.findMany({
       where: { studentId: userId, createdAt: { gte: weekAgo } },
       select: { createdAt: true },
+    }),
+    db.user.findUnique({
+      where: { id: userId },
+      select: {
+        xp: true, level: true, streak: true, longestStreak: true,
+        userBadges: { select: { badge: true, earnedAt: true }, orderBy: { earnedAt: "desc" }, take: 6 },
+      },
     }),
   ]);
 
@@ -294,6 +303,7 @@ export default async function DashboardPage() {
   ]);
 
   const avgScore = avgResult._avg.score ?? 0;
+  const levelInfo = getLevelInfo(gamificationUser?.xp ?? 0);
   const weeklyChart = days.map(({ label, date }) => {
     const next = new Date(date.getTime() + 86_400_000);
     return { day: label, submissions: weeklySubmissions.filter((s) => s.createdAt >= date && s.createdAt < next).length };
@@ -319,6 +329,95 @@ export default async function DashboardPage() {
             <PillBadge icon="✅" value={completed} label="Completed" />
             <PillBadge icon="⭐" value={`${Math.round(avgScore)}%`} label="Score" />
           </div>
+        </div>
+      </div>
+
+      {/* Gamification card */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+      >
+        <div
+          className="grid grid-cols-2 sm:grid-cols-4 gap-px"
+          style={{ background: "var(--border)" }}
+        >
+          {/* XP */}
+          <div className="flex flex-col items-center justify-center gap-1 py-4 px-3" style={{ background: "var(--surface)" }}>
+            <Star className="h-5 w-5" style={{ color: "var(--primary)" }} />
+            <p className="text-xl font-bold" style={{ color: "var(--text)" }}>{(gamificationUser?.xp ?? 0).toLocaleString()}</p>
+            <p className="text-[11px]" style={{ color: "var(--text-3)" }}>XP earned</p>
+          </div>
+          {/* Level */}
+          <div className="flex flex-col items-center justify-center gap-1 py-4 px-3" style={{ background: "var(--surface)" }}>
+            <span className="text-2xl">{levelInfo.current.emoji}</span>
+            <p className="text-xl font-bold" style={{ color: "var(--text)" }}>{gamificationUser?.level ?? 1}</p>
+            <p className="text-[11px]" style={{ color: "var(--text-3)" }}>{levelInfo.current.label}</p>
+          </div>
+          {/* Streak */}
+          <div className="flex flex-col items-center justify-center gap-1 py-4 px-3" style={{ background: "var(--surface)" }}>
+            <Flame className="h-5 w-5" style={{ color: "#f97316" }} />
+            <p className="text-xl font-bold" style={{ color: "var(--text)" }}>{gamificationUser?.streak ?? 0}</p>
+            <p className="text-[11px]" style={{ color: "var(--text-3)" }}>Day streak</p>
+          </div>
+          {/* Badges */}
+          <div className="flex flex-col items-center justify-center gap-1 py-4 px-3" style={{ background: "var(--surface)" }}>
+            <Trophy className="h-5 w-5" style={{ color: "#f59e0b" }} />
+            <p className="text-xl font-bold" style={{ color: "var(--text)" }}>{gamificationUser?.userBadges.length ?? 0}</p>
+            <p className="text-[11px]" style={{ color: "var(--text-3)" }}>Badges</p>
+          </div>
+        </div>
+
+        {/* XP progress bar + badges row */}
+        <div className="px-5 py-3" style={{ borderTop: "1px solid var(--border)" }}>
+          {/* Progress bar */}
+          {levelInfo.next ? (
+            <div className="mb-2">
+              <div className="flex justify-between text-[10px] mb-1" style={{ color: "var(--text-3)" }}>
+                <span>Level {levelInfo.current.level} → {levelInfo.next.level}</span>
+                <span>{gamificationUser?.xp ?? 0} / {levelInfo.next.minXp} XP ({levelInfo.progress}%)</span>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--surface-2)" }}>
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${levelInfo.progress}%`, background: "var(--primary)" }}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs font-semibold text-center mb-2" style={{ color: "var(--primary)" }}>
+              💎 Maximum level reached!
+            </p>
+          )}
+
+          {/* Recent badges */}
+          {(gamificationUser?.userBadges.length ?? 0) > 0 ? (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {gamificationUser!.userBadges.map(({ badge }) => {
+                const meta = BADGE_META[badge as BadgeType];
+                return (
+                  <span
+                    key={badge}
+                    title={meta.desc}
+                    className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                    style={{ background: `${meta.color}20`, color: meta.color, border: `1px solid ${meta.color}40` }}
+                  >
+                    {meta.emoji} {meta.label}
+                  </span>
+                );
+              })}
+              <Link
+                href="/leaderboard"
+                className="rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors hover:opacity-80"
+                style={{ background: "var(--surface-2)", color: "var(--text-3)", border: "1px solid var(--border)" }}
+              >
+                View all →
+              </Link>
+            </div>
+          ) : (
+            <p className="text-xs text-center" style={{ color: "var(--text-3)" }}>
+              Submit assignments to earn XP and badges! 🏆
+            </p>
+          )}
         </div>
       </div>
 

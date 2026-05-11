@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { awardXp, checkAndAwardBadges } from "@/lib/gamification";
 
 const gradeSchema = z.object({
   submissionId: z.string(),
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
     data: { status: "GRADED" },
   });
 
-  // Notify student — link goes to the assignment detail page where they can see their grade
+  // Notify student
   await db.notification.create({
     data: {
       userId: submission.studentId,
@@ -61,6 +62,26 @@ export async function POST(req: Request) {
       link: `/assignments/${submission.assignmentId}`,
     },
   });
+
+  // Gamification: award XP based on score percentage
+  const maxScore = submission.assignment.maxScore;
+  if (maxScore > 0) {
+    const pct = score / maxScore;
+    const xpAction =
+      pct >= 1    ? "GRADE_100" :
+      pct >= 0.9  ? "GRADE_90"  :
+      pct >= 0.7  ? "GRADE_70"  :
+      pct >= 0.5  ? "GRADE_50"  : null;
+
+    if (xpAction) {
+      await awardXp(submission.studentId, xpAction, {
+        assignmentId: submission.assignmentId,
+        score,
+        maxScore,
+      });
+    }
+    await checkAndAwardBadges(submission.studentId);
+  }
 
   return NextResponse.json(grade, { status: 201 });
 }

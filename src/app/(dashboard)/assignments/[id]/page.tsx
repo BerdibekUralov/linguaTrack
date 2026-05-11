@@ -276,7 +276,9 @@ export default async function AssignmentDetailPage({ params }: Props) {
                   {sub.status === "SUBMITTED" && !sub.grade && (
                     <GradeForm
                       submissionId={sub.id}
+                      assignmentId={assignment.id}
                       maxScore={assignment.maxScore}
+                      skillType={skillType}
                       suggestedScore={subExt.autoScore != null ? Math.round((subExt.autoScore / 100) * assignment.maxScore) : undefined}
                     />
                   )}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { awardXp, updateStreak, checkAndAwardBadges } from "@/lib/gamification";
 import type {
   StructuredAnswers,
   ReadingContent,
@@ -134,6 +135,20 @@ export async function POST(req: Request, { params }: Params) {
       link: `/assignments/${submission.assignment.id}`,
     },
   });
+
+  // Gamification: XP for submitting + streak + early bird bonus
+  const studentId = session.user.id as string;
+  await awardXp(studentId, "SUBMIT", { assignmentId: submission.assignmentId });
+
+  if (!isLate && submission.assignment.dueDate) {
+    const hoursLeft = (new Date(submission.assignment.dueDate).getTime() - Date.now()) / 3_600_000;
+    if (hoursLeft >= 24) {
+      await awardXp(studentId, "SUBMIT_ONTIME", { assignmentId: submission.assignmentId });
+    }
+  }
+
+  await updateStreak(studentId);
+  await checkAndAwardBadges(studentId);
 
   return NextResponse.json(updated);
 }

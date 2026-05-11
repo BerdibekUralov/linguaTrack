@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { getInitials } from "@/lib/utils";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Wifi, WifiOff } from "lucide-react";
+import { supabase, chatChannel } from "@/lib/supabase";
 
 interface Message {
   id: string;
@@ -27,11 +28,12 @@ interface Props {
 }
 
 export function ConversationView({ initialMessages, partner, currentUserId }: Props) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [content, setContent] = useState("");
-  const [sending, setSending] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [messages, setMessages]     = useState<Message[]>(initialMessages);
+  const [content, setContent]       = useState("");
+  const [sending, setSending]       = useState(false);
+  const [realtime, setRealtime]     = useState(false);
+  const bottomRef                   = useRef<HTMLDivElement>(null);
+  const textareaRef                 = useRef<HTMLTextAreaElement>(null);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -41,23 +43,43 @@ export function ConversationView({ initialMessages, partner, currentUserId }: Pr
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Poll for new messages every 3 seconds
+  // ── Real-time via Supabase ─────────────────────────────────────
   useEffect(() => {
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/messages/${partner.id}`);
-        if (res.ok) {
-          const data = await res.json() as { messages: Message[] };
-          if (Array.isArray(data.messages)) setMessages(data.messages);
-        }
-      } catch {
-        // ignore network errors during polling
-      }
-    };
+    if (!supabase) {
+      // Supabase not configured — fall back to 3s polling
+      const poll = async () => {
+        try {
+          const res = await fetch(`/api/messages/${partner.id}`);
+          if (res.ok) {
+            const data = await res.json() as { messages: Message[] };
+            if (Array.isArray(data.messages)) setMessages(data.messages);
+          }
+        } catch { /* ignore */ }
+      };
+      const interval = setInterval(poll, 3000);
+      return () => clearInterval(interval);
+    }
 
-    const interval = setInterval(poll, 3000);
-    return () => clearInterval(interval);
-  }, [partner.id]);
+    // Supabase configured — use Realtime Broadcast
+    const sb = supabase;
+    const channel = sb
+      .channel(chatChannel(currentUserId, partner.id))
+      .on("broadcast", { event: "new-message" }, ({ payload }) => {
+        const msg = payload as Message;
+        setMessages((prev) => {
+          // Avoid duplicates (optimistic update already added it)
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      })
+      .subscribe((status) => {
+        setRealtime(status === "SUBSCRIBED");
+      });
+
+    return () => {
+      void sb.removeChannel(channel);
+    };
+  }, [currentUserId, partner.id]);
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +87,8 @@ export function ConversationView({ initialMessages, partner, currentUserId }: Pr
     if (!text || sending) return;
 
     setSending(true);
+    setContent("");
+
     try {
       const res = await fetch("/api/messages", {
         method: "POST",
@@ -74,10 +98,16 @@ export function ConversationView({ initialMessages, partner, currentUserId }: Pr
 
       if (res.ok) {
         const newMsg = await res.json() as Message;
-        setMessages((prev) => [...prev, newMsg]);
-        setContent("");
+        // Optimistic: add immediately (Supabase broadcast will deduplicate)
+        setMessages((prev) =>
+          prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]
+        );
         textareaRef.current?.focus();
+      } else {
+        setContent(text); // restore on error
       }
+    } catch {
+      setContent(text);
     } finally {
       setSending(false);
     }
@@ -86,12 +116,29 @@ export function ConversationView({ initialMessages, partner, currentUserId }: Pr
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage(e as unknown as React.FormEvent);
+      void sendMessage(e as unknown as React.FormEvent);
     }
   };
 
   return (
     <div className="flex flex-col h-full">
+      {/* Real-time status indicator */}
+      {supabase && (
+        <div
+          className="flex items-center gap-1.5 px-4 py-1.5 text-[11px]"
+          style={{
+            background: realtime ? "var(--success-bg)" : "var(--surface-2)",
+            borderBottom: "1px solid var(--border)",
+            color: realtime ? "var(--success)" : "var(--text-3)",
+          }}
+        >
+          {realtime
+            ? <><Wifi className="h-3 w-3" /> Live</>
+            : <><WifiOff className="h-3 w-3" /> Connecting…</>
+          }
+        </div>
+      )}
+
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" style={{ minHeight: 0 }}>
         {messages.length === 0 && (
@@ -117,7 +164,7 @@ export function ConversationView({ initialMessages, partner, currentUserId }: Pr
                   background: isMine ? "var(--primary)" : "var(--surface-2)",
                   color: isMine ? "#fff" : "var(--text)",
                   borderBottomRightRadius: isMine ? 4 : undefined,
-                  borderBottomLeftRadius: !isMine ? 4 : undefined,
+                  borderBottomLeftRadius:  !isMine ? 4 : undefined,
                 }}
               >
                 <p className="whitespace-pre-wrap break-words">{msg.content}</p>
@@ -139,13 +186,13 @@ export function ConversationView({ initialMessages, partner, currentUserId }: Pr
 
       {/* Input area */}
       <div className="px-4 py-3" style={{ borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
-        <form onSubmit={sendMessage} className="flex items-end gap-2">
+        <form onSubmit={(e) => void sendMessage(e)} className="flex items-end gap-2">
           <textarea
             ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message... (Enter — send, Shift+Enter — new line)"
+            placeholder="Type a message… (Enter — send, Shift+Enter — new line)"
             rows={1}
             className="flex-1 resize-none rounded-xl px-4 py-2.5 text-sm outline-none transition max-h-32"
             style={{
@@ -161,11 +208,10 @@ export function ConversationView({ initialMessages, partner, currentUserId }: Pr
             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ background: "var(--primary)" }}
           >
-            {sending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
+            {sending
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <Send className="h-4 w-4" />
+            }
           </button>
         </form>
       </div>
