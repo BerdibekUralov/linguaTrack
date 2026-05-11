@@ -12,6 +12,7 @@ import { SubmissionViewer } from "@/components/submissions/submission-viewer";
 import { SpeakingAnswersViewer } from "@/components/submissions/speaking-answers-viewer";
 import { StructuredAnswersViewer } from "@/components/submissions/structured-answers-viewer";
 import { VocabAnswersViewer } from "@/components/submissions/vocab-answers-viewer";
+import { ReturnSubmissionButton } from "@/components/submissions/return-submission-button";
 import type {
   SkillContent,
   SpeakingContent,
@@ -238,7 +239,25 @@ export default async function AssignmentDetailPage({ params }: Props) {
         )}
       </div>
 
-      {/* ── STUDENT: submit ───────────────────────────────────── */}
+      {/* ── STUDENT: returned notice ──────────────────────────── */}
+      {role === "STUDENT" && mySubmission?.status === "RETURNED" && (
+        <div
+          className="flex items-start gap-3 rounded-2xl px-5 py-4"
+          style={{ background: "var(--warning-bg, #fffbeb)", border: "1px solid var(--warning)" }}
+        >
+          <span className="text-xl mt-0.5">↩️</span>
+          <div>
+            <p className="font-semibold text-sm" style={{ color: "var(--warning)" }}>
+              Ishingiz qaytarildi
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-2)" }}>
+              O'qituvchingiz ishingizni ko'rib chiqib, qayta topshirishingizni so'radi. Quyida javoblaringizni o'zgartirib, qayta yuboring.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── STUDENT: submit (also shown when RETURNED for re-submission) ── */}
       {role === "STUDENT" && assignment.status === "ACTIVE" && (
         <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -355,19 +374,34 @@ export default async function AssignmentDetailPage({ params }: Props) {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {sub.isLate && <Badge variant="danger">Late</Badge>}
+                      {sub.attempt > 1 && (
+                        <Badge variant="info">{sub.attempt}-urinish</Badge>
+                      )}
                       {subExt.autoScore != null && <Badge variant="info">Auto: {subExt.autoScore}%</Badge>}
                       {sub.grade
                         ? <Badge variant="success">{sub.grade.score}/{assignment.maxScore}</Badge>
                         : sub.status === "SUBMITTED"
-                        ? <Badge variant="warning">Pending grade</Badge>
+                        ? <Badge variant="warning">Baholanmagan</Badge>
+                        : sub.status === "RETURNED"
+                        ? <Badge variant="default">↩ Qaytarildi</Badge>
                         : <Badge variant="default">{sub.status}</Badge>}
                     </div>
                   </div>
 
-                  {/* Answers panel — all skill types */}
-                  {sub.status === "SUBMITTED" && (
+                  {/* Returned notice */}
+                  {sub.status === "RETURNED" && (
+                    <div
+                      className="rounded-xl px-4 py-3 text-xs"
+                      style={{ background: "var(--warning-bg, #fffbeb)", border: "1px solid var(--warning)", color: "var(--warning)" }}
+                    >
+                      ↩ Bu ish qaytarilgan — student qayta topshirishi kutilmoqda.
+                    </div>
+                  )}
+
+                  {/* Answers panel — all skill types (SUBMITTED or GRADED) */}
+                  {(sub.status === "SUBMITTED" || sub.status === "GRADED") && (
                     <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
                       <div
                         className="flex items-center gap-2 px-4 py-2.5"
@@ -389,41 +423,58 @@ export default async function AssignmentDetailPage({ params }: Props) {
                     </div>
                   )}
 
-                  {/* Grade form — shown when pending */}
+                  {/* Grade form + Return button — shown when submitted, not yet graded */}
                   {sub.status === "SUBMITTED" && !sub.grade && (
-                    <GradeForm
-                      submissionId={sub.id}
-                      assignmentId={assignment.id}
-                      maxScore={assignment.maxScore}
-                      skillType={skillType}
-                      suggestedScore={subExt.autoScore != null ? Math.round((subExt.autoScore / 100) * assignment.maxScore) : undefined}
-                    />
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <GradeForm
+                          submissionId={sub.id}
+                          assignmentId={assignment.id}
+                          maxScore={assignment.maxScore}
+                          skillType={skillType}
+                          suggestedScore={subExt.autoScore != null ? Math.round((subExt.autoScore / 100) * assignment.maxScore) : undefined}
+                        />
+                      </div>
+                      <ReturnSubmissionButton
+                        submissionId={sub.id}
+                        studentName={sub.student.name}
+                      />
+                    </div>
                   )}
 
-                  {/* Grade result — shown after grading */}
+                  {/* Grade result + Return button — shown after grading */}
                   {sub.grade && (
-                    <div
-                      className="flex items-start gap-4 rounded-xl px-4 py-3"
-                      style={{ background: "var(--success-bg)", border: "1px solid var(--success)" }}
-                    >
-                      <CheckCircle className="h-5 w-5 mt-0.5 shrink-0" style={{ color: "var(--success)" }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-base" style={{ color: "var(--success)" }}>
-                            {sub.grade.score}/{assignment.maxScore}
-                          </span>
-                          <span className="text-xs" style={{ color: "var(--success)" }}>
-                            ({Math.round((sub.grade.score / assignment.maxScore) * 100)}%)
-                          </span>
-                          <span className="text-[11px] ml-auto" style={{ color: "var(--success)" }}>
-                            {formatDateTime(sub.grade.gradedAt)}
-                          </span>
+                    <div className="space-y-2">
+                      <div
+                        className="flex items-start gap-4 rounded-xl px-4 py-3"
+                        style={{ background: "var(--success-bg)", border: "1px solid var(--success)" }}
+                      >
+                        <CheckCircle className="h-5 w-5 mt-0.5 shrink-0" style={{ color: "var(--success)" }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-base" style={{ color: "var(--success)" }}>
+                              {sub.grade.score}/{assignment.maxScore}
+                            </span>
+                            <span className="text-xs" style={{ color: "var(--success)" }}>
+                              ({Math.round((sub.grade.score / assignment.maxScore) * 100)}%)
+                            </span>
+                            <span className="text-[11px] ml-auto" style={{ color: "var(--success)" }}>
+                              {formatDateTime(sub.grade.gradedAt)}
+                            </span>
+                          </div>
+                          {sub.grade.feedback && (
+                            <p className="text-sm mt-1 whitespace-pre-wrap" style={{ color: "var(--success)" }}>
+                              💬 {sub.grade.feedback}
+                            </p>
+                          )}
                         </div>
-                        {sub.grade.feedback && (
-                          <p className="text-sm mt-1 whitespace-pre-wrap" style={{ color: "var(--success)" }}>
-                            💬 {sub.grade.feedback}
-                          </p>
-                        )}
+                      </div>
+                      {/* Teacher can still return even after grading */}
+                      <div className="flex justify-end">
+                        <ReturnSubmissionButton
+                          submissionId={sub.id}
+                          studentName={sub.student.name}
+                        />
                       </div>
                     </div>
                   )}

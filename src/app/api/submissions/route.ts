@@ -98,10 +98,11 @@ export async function POST(req: Request) {
     : null;
 
   const existing = await db.submission.findFirst({
-    where: { assignmentId, studentId: session.user.id as string, status: { not: "RETURNED" } },
+    where: { assignmentId, studentId: session.user.id as string },
+    orderBy: { createdAt: "desc" },
   });
 
-  if (existing && existing.status !== "DRAFT") {
+  if (existing && existing.status !== "DRAFT" && existing.status !== "RETURNED") {
     return NextResponse.json({ error: "Siz bu vazifani allaqachon topshirgansiz" }, { status: 409 });
   }
 
@@ -113,7 +114,8 @@ export async function POST(req: Request) {
         fileUrls: fileUrls ?? existing.fileUrls,
         answers: answers ?? existing.answers ?? undefined,
         autoScore: autoScore ?? existing.autoScore,
-        attempt: existing.attempt + 1,
+        // Reset RETURNED back to DRAFT so it can be submitted again
+        ...(existing.status === "RETURNED" ? { status: "DRAFT" } : {}),
       },
     });
     return NextResponse.json(updated);

@@ -81,6 +81,7 @@ export function SkillSubmission({
   submission,
 }: Props) {
   const router = useRouter();
+  // RETURNED → show the form again so student can re-submit
   const [submitted, setSubmitted] = useState(
     submission?.status === "SUBMITTED" || submission?.status === "GRADED"
   );

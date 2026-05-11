@@ -41,6 +41,7 @@ function autoGrade(
   return Math.round((correct / total) * 100);
 }
 
+// ─── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(_: Request, { params }: Params) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Ruxsat yo'q" }, { status: 401 });
@@ -60,6 +61,56 @@ export async function GET(_: Request, { params }: Params) {
   return NextResponse.json(submission);
 }
 
+// ─── PATCH — teacher returns submission to student ────────────────────────────
+export async function PATCH(req: Request, { params }: Params) {
+  const session = await auth();
+  if (!session || session.user.role !== "TEACHER") {
+    return NextResponse.json({ error: "Ruxsat yo'q" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const body = await req.json() as { action: string; note?: string };
+
+  if (body.action !== "return") {
+    return NextResponse.json({ error: "Noto'g'ri amal" }, { status: 400 });
+  }
+
+  const submission = await db.submission.findUnique({
+    where: { id },
+    include: { assignment: { select: { teacherId: true, title: true, id: true } } },
+  });
+
+  if (!submission) return NextResponse.json({ error: "Topilmadi" }, { status: 404 });
+  if (submission.assignment.teacherId !== (session.user.id as string)) {
+    return NextResponse.json({ error: "Ruxsat yo'q" }, { status: 403 });
+  }
+  if (submission.status !== "SUBMITTED" && submission.status !== "GRADED") {
+    return NextResponse.json({ error: "Faqat topshirilgan yoki baholangan ishlarni qaytarish mumkin" }, { status: 409 });
+  }
+
+  // Delete existing grade if any (teacher is sending back for revision)
+  await db.grade.deleteMany({ where: { submissionId: id } });
+
+  const updated = await db.submission.update({
+    where: { id },
+    data: { status: "RETURNED" },
+  });
+
+  // Notify student
+  await db.notification.create({
+    data: {
+      userId: submission.studentId,
+      type: "ASSIGNMENT_GRADED",
+      title: "Vazifa qaytarildi",
+      message: `"${submission.assignment.title}" vazifangiz qayta ko'rib chiqish uchun qaytarildi.${body.note ? ` Izoh: ${body.note}` : ""}`,
+      link: `/assignments/${submission.assignment.id}`,
+    },
+  });
+
+  return NextResponse.json(updated);
+}
+
+// ─── POST — student submits (from DRAFT or RETURNED) ─────────────────────────
 export async function POST(req: Request, { params }: Params) {
   const session = await auth();
   if (!session || session.user.role !== "STUDENT") {
@@ -80,13 +131,15 @@ export async function POST(req: Request, { params }: Params) {
   });
 
   if (!submission) return NextResponse.json({ error: "Topilmadi" }, { status: 404 });
-  if (submission.status !== "DRAFT") {
+  if (submission.status !== "DRAFT" && submission.status !== "RETURNED") {
     return NextResponse.json({ error: "Allaqachon topshirilgan" }, { status: 409 });
   }
 
   const isLate = submission.assignment.dueDate
     ? new Date() > new Date(submission.assignment.dueDate)
     : false;
+
+  const isResubmit = submission.status === "RETURNED";
 
   // Compute auto-score from answers (prefer body answers, fall back to stored)
   const effectiveAnswers = (answers ?? submission.answers) as StructuredAnswers | null;
@@ -104,25 +157,29 @@ export async function POST(req: Request, { params }: Params) {
       status: "SUBMITTED",
       submittedAt: new Date(),
       isLate,
+      attempt: isResubmit ? submission.attempt + 1 : submission.attempt,
       ...(answers ? { answers } : {}),
       ...(autoScore !== null ? { autoScore } : {}),
     },
   });
 
-  // Auto-create grade for vocabulary (score from quiz)
-  if (submission.assignment.skillType === "VOCABULARY" && submission.autoScore !== null) {
-    const vocabScore = Math.round(
-      ((submission.autoScore ?? 0) / 100) * submission.assignment.maxScore
-    );
-    await db.grade.create({
-      data: {
+  // Auto-create grade for vocabulary
+  if (submission.assignment.skillType === "VOCABULARY" && autoScore !== null) {
+    await db.grade.upsert({
+      where: { submissionId: id },
+      create: {
         submissionId: id,
         teacherId: submission.assignment.teacherId,
-        score: vocabScore,
-        feedback: `Vocabulary quiz natijasi: ${submission.autoScore ?? 0}%`,
+        score: Math.round((autoScore / 100) * submission.assignment.maxScore),
+        feedback: `Vocabulary quiz natijasi: ${autoScore}%`,
         gradedAt: new Date(),
       },
-    }).catch(() => {/* ignore if already graded */});
+      update: {
+        score: Math.round((autoScore / 100) * submission.assignment.maxScore),
+        feedback: `Vocabulary quiz natijasi: ${autoScore}%`,
+        gradedAt: new Date(),
+      },
+    });
   }
 
   // Teacher notification
@@ -130,13 +187,15 @@ export async function POST(req: Request, { params }: Params) {
     data: {
       userId: submission.assignment.teacherId,
       type: "SUBMISSION_RECEIVED",
-      title: "New submission",
-      message: `A student submitted: "${submission.assignment.title}"`,
+      title: isResubmit ? "Qayta topshirildi" : "Yangi topshiriq",
+      message: isResubmit
+        ? `Student "${submission.assignment.title}" vazifasini qayta topshirdi.`
+        : `Student "${submission.assignment.title}" vazifasini topshirdi.`,
       link: `/assignments/${submission.assignment.id}`,
     },
   });
 
-  // Gamification: XP for submitting + streak + early bird bonus
+  // Gamification (only on first submission or resubmit)
   const studentId = session.user.id as string;
   await awardXp(studentId, "SUBMIT", { assignmentId: submission.assignmentId });
 
