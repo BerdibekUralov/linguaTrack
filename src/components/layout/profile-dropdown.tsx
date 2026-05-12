@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { LogOut, Settings, Sun, Moon, Monitor } from "lucide-react";
+import { LogOut, Settings, Sun, Moon, Monitor, BookOpen } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 interface Props {
@@ -95,7 +95,11 @@ export function ProfileDropdown({ open, onClose, anchorRef, name, email, role }:
 
       {/* Links */}
       <div className="py-1">
-        <Link href="/settings" onClick={onClose} className="flex items-center gap-3 px-5 py-2.5 text-sm transition-colors" style={{ color: "var(--text-2)" }}>
+        <Link href="/help" onClick={onClose} className="flex items-center gap-3 px-5 py-2.5 text-sm transition-colors hover:opacity-80" style={{ color: "var(--text-2)" }}>
+          <BookOpen className="h-4 w-4" style={{ color: "var(--primary)" }} />
+          Yoriqnoma (Help)
+        </Link>
+        <Link href="/settings" onClick={onClose} className="flex items-center gap-3 px-5 py-2.5 text-sm transition-colors hover:opacity-80" style={{ color: "var(--text-2)" }}>
           <Settings className="h-4 w-4" style={{ color: "var(--text-3)" }} />
           Settings
         </Link>

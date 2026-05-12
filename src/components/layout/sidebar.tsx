@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, BookOpen, FileText,
-  TrendingUp, Users, GraduationCap, X, ShieldCheck, Trophy, Video,
+  TrendingUp, Users, GraduationCap, X, ShieldCheck, Trophy, Video, HelpCircle,
 } from "lucide-react";
 import { UserXpWidget } from "@/components/gamification/user-xp-widget";
 
@@ -85,6 +85,19 @@ function NavContent({ role, name, onClose }: { role: string; name: string; onClo
 
       {/* XP Widget — students only */}
       {role === "STUDENT" && <UserXpWidget />}
+
+      {/* Help link */}
+      <div className="px-3 pb-1 shrink-0">
+        <Link
+          href="/help"
+          onClick={onClose}
+          className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium transition-colors hover:opacity-80"
+          style={{ color: "var(--text-3)" }}
+        >
+          <HelpCircle className="h-4 w-4 shrink-0" />
+          Yoriqnoma
+        </Link>
+      </div>
 
       {/* User footer */}
       <div className="px-3 py-3 shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
