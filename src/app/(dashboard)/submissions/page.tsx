@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { FileText, CheckCircle, Clock, AlertCircle, Star, TrendingUp } from "lucide-react";
+import { Suspense } from "react";
+import { SubmissionsFilterBar } from "@/components/submissions/submissions-filter-bar";
 
 const statusMeta: Record<string, { label: string; variant: "success" | "warning" | "info" | "default" | "danger" }> = {
   DRAFT:     { label: "Draft",     variant: "default" },
@@ -13,42 +15,85 @@ const statusMeta: Record<string, { label: string; variant: "success" | "warning"
   RETURNED:  { label: "Returned",  variant: "warning" },
 };
 
-export default async function SubmissionsPage() {
+const VALID_SKILLS   = ["WRITING","SPEAKING","LISTENING","READING","GRAMMAR","VOCABULARY","USE_OF_ENGLISH","MIXED"];
+const VALID_STATUSES = ["DRAFT","SUBMITTED","GRADED","RETURNED"];
+
+export default async function SubmissionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await auth();
   if (!session) redirect("/login");
+
+  const params = await searchParams;
+  const get = (k: string) => (Array.isArray(params[k]) ? params[k]![0] : params[k]) ?? "";
 
   const userId = session.user.id as string;
   const role   = session.user.role as string;
 
+  const skill  = VALID_SKILLS.includes(get("skill"))   ? get("skill")   : "";
+  const status = VALID_STATUSES.includes(get("status")) ? get("status") : "";
+  const sort   = get("sort") || "newest";
+  const q      = get("q").trim();
+
+  const orderBy =
+    sort === "oldest"     ? { createdAt: "asc"  as const } :
+    sort === "score_high" ? { grade: { score: "desc" as const } } :
+    sort === "score_low"  ? { grade: { score: "asc"  as const } } :
+                            { createdAt: "desc" as const };
+
   const submissions = await db.submission.findMany({
-    where: role === "STUDENT" ? { studentId: userId } : { assignment: { teacherId: userId } },
+    where: {
+      ...(role === "STUDENT"
+        ? { studentId: userId }
+        : {
+            assignment: {
+              teacherId: userId,
+              ...(q ? { title: { contains: q, mode: "insensitive" } } : {}),
+            },
+          }),
+      ...(status ? { status: status as never } : {}),
+      ...(skill  ? { assignment: { skillType: skill as never, ...(role === "TEACHER" && q ? { title: { contains: q, mode: "insensitive" } } : {}) } } : {}),
+      ...(role === "STUDENT" && q ? { assignment: { title: { contains: q, mode: "insensitive" } } } : {}),
+    },
     include: {
       assignment: { select: { id: true, title: true, maxScore: true, skillType: true } },
       student:    { select: { id: true, name: true, avatar: true } },
       grade:      true,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy,
   });
 
-  const gradedCount  = submissions.filter((s) => s.status === "GRADED").length;
-  const pendingCount = submissions.filter((s) => s.status === "SUBMITTED").length;
-  const withGrade    = submissions.filter((s) => s.grade);
+  // Post-filter: teacher search by student name
+  const filtered = role === "TEACHER" && q
+    ? submissions.filter(
+        (s) =>
+          s.assignment.title.toLowerCase().includes(q.toLowerCase()) ||
+          s.student.name.toLowerCase().includes(q.toLowerCase()),
+      )
+    : submissions;
+
+  // Stats (from full filtered set)
+  const gradedCount  = filtered.filter((s) => s.status === "GRADED").length;
+  const pendingCount = filtered.filter((s) => s.status === "SUBMITTED").length;
+  const withGrade    = filtered.filter((s) => s.grade);
   const avgScore     = withGrade.length > 0
     ? Math.round(withGrade.reduce((sum, s) => sum + (s.grade?.score ?? 0), 0) / withGrade.length)
     : null;
 
   const statCards = [
-    { icon: FileText,    label: "Total",         value: submissions.length,                     color: "primary" as const },
-    { icon: CheckCircle, label: "Graded",         value: gradedCount,                            color: "success" as const },
-    { icon: Clock,       label: "Pending",        value: pendingCount,                           color: "warning" as const },
-    { icon: Star,        label: "Average score",  value: avgScore !== null ? `${avgScore}%` : "—", color: "accent" as const },
+    { icon: FileText,    label: "Total",        value: filtered.length,                          color: "primary" as const },
+    { icon: CheckCircle, label: "Graded",        value: gradedCount,                              color: "success" as const },
+    { icon: Clock,       label: "Pending",       value: pendingCount,                             color: "warning" as const },
+    { icon: Star,        label: "Average score", value: avgScore !== null ? `${avgScore}%` : "—", color: "accent"  as const },
   ];
 
   const ICON_COLORS = {
-    primary: { bg: "var(--primary-bg)",  icon: "var(--primary)" },
-    success: { bg: "var(--success-bg)",  icon: "var(--success)" },
-    warning: { bg: "var(--warning-bg)",  icon: "var(--warning)" },
-    accent:  { bg: "#f5f3ff",            icon: "var(--accent)" },
+    primary: { bg: "var(--primary-bg)", icon: "var(--primary)" },
+    success: { bg: "var(--success-bg)", icon: "var(--success)" },
+    warning: { bg: "var(--warning-bg)", icon: "var(--warning)" },
+    accent:  { bg: "#f5f3ff",           icon: "var(--accent)"  },
   };
 
   return (
@@ -100,26 +145,36 @@ export default async function SubmissionsPage() {
         </div>
       )}
 
+      {/* Filter bar */}
+      <Suspense>
+        <SubmissionsFilterBar role={role} total={filtered.length} />
+      </Suspense>
+
       {/* List */}
       <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
         <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
-          <h2 className="font-semibold" style={{ color: "var(--text)" }}>All submissions</h2>
+          <h2 className="font-semibold" style={{ color: "var(--text)" }}>
+            {filtered.length} submission{filtered.length !== 1 ? "s" : ""}
+          </h2>
         </div>
 
-        {submissions.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "var(--surface-2)" }}>
               <FileText className="h-7 w-7 opacity-20" style={{ color: "var(--text-3)" }} />
             </div>
             <div className="text-center">
-              <p className="text-sm" style={{ color: "var(--text-3)" }}>No submissions yet</p>
-              <Link href="/assignments" className="mt-1.5 inline-block text-sm font-medium" style={{ color: "var(--primary)" }}>
-                Browse assignments →
-              </Link>
+              <p className="text-sm" style={{ color: "var(--text-3)" }}>No submissions found</p>
+              <p className="mt-0.5 text-xs" style={{ color: "var(--text-3)" }}>Try adjusting your filters</p>
+              {role === "STUDENT" && (
+                <Link href="/assignments" className="mt-1.5 inline-block text-sm font-medium" style={{ color: "var(--primary)" }}>
+                  Browse assignments →
+                </Link>
+              )}
             </div>
           </div>
         ) : (
-          submissions.map((s, i) => {
+          filtered.map((s, i) => {
             const meta = statusMeta[s.status] ?? statusMeta.DRAFT;
             const scorePercent = s.grade ? Math.round((s.grade.score / s.assignment.maxScore) * 100) : null;
 
@@ -127,7 +182,7 @@ export default async function SubmissionsPage() {
               <Link
                 key={s.id}
                 href={`/assignments/${s.assignmentId}`}
-                className="flex items-start gap-4 px-6 py-4 transition-colors animate-fade-slide-up"
+                className="flex items-start gap-4 px-6 py-4 transition-colors animate-fade-slide-up hover:opacity-80"
                 style={{ borderBottom: "1px solid var(--border)", animationDelay: `${i * 0.03}s` }}
               >
                 {/* Icon */}
@@ -135,7 +190,7 @@ export default async function SubmissionsPage() {
                   className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg"
                   style={{ background: "var(--primary-bg)" }}
                 >
-                  {s.status === "GRADED" ? "✅" : s.status === "SUBMITTED" ? "⏳" : "📝"}
+                  {s.status === "GRADED" ? "✅" : s.status === "SUBMITTED" ? "⏳" : s.status === "RETURNED" ? "🔄" : "📝"}
                 </div>
 
                 {/* Main */}
@@ -156,13 +211,15 @@ export default async function SubmissionsPage() {
                       </span>
                     )}
                   </div>
-                  {/* Score bar inline (for graded) */}
                   {scorePercent !== null && (
                     <div className="mt-2 flex items-center gap-2">
                       <div className="progress-track flex-1 max-w-[120px]">
                         <div className="progress-fill" style={{ width: `${scorePercent}%` }} />
                       </div>
-                      <span className="text-xs font-medium" style={{ color: scorePercent >= 70 ? "var(--success)" : scorePercent >= 50 ? "var(--warning)" : "var(--danger)" }}>
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: scorePercent >= 70 ? "var(--success)" : scorePercent >= 50 ? "var(--warning)" : "var(--danger)" }}
+                      >
                         {scorePercent}%
                       </span>
                     </div>

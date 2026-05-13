@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { formatDate, isOverdue } from "@/lib/utils";
 import { Plus, BookOpen, Calendar, Hash, ArrowRight } from "lucide-react";
 import { FRAMEWORK_LABELS } from "@/types/skill-content";
+import { Suspense } from "react";
+import { AssignmentsFilterBar } from "@/components/assignments/assignments-filter-bar";
 
 const SKILL_META: Record<string, { label: string; emoji: string; bg: string; color: string }> = {
   WRITING:        { label: "Writing",        emoji: "✍️",  bg: "#dbeafe", color: "#2563eb" },
@@ -19,35 +21,86 @@ const SKILL_META: Record<string, { label: string; emoji: string; bg: string; col
   USE_OF_ENGLISH: { label: "Use of English", emoji: "🔤",  bg: "#fdf4ff", color: "#7e22ce" },
 };
 
-export default async function AssignmentsPage() {
+const VALID_SKILLS   = Object.keys(SKILL_META);
+const VALID_STATUSES = ["ACTIVE", "DRAFT", "CLOSED"];
+const STUDENT_STATUSES = ["pending", "submitted", "overdue"];
+
+export default async function AssignmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await auth();
   if (!session) redirect("/login");
+
+  const params = await searchParams;
+  const get = (k: string) => (Array.isArray(params[k]) ? params[k]![0] : params[k]) ?? "";
 
   const userId = session.user.id as string;
   const role   = session.user.role as string;
 
+  const skill  = VALID_SKILLS.includes(get("skill"))   ? get("skill")   : "";
+  const sort   = get("sort")   || "newest";
+  const q      = get("q").trim();
+
+  // Status: teachers use DB status; students filter post-query
+  const dbStatus = role === "TEACHER" && VALID_STATUSES.includes(get("status"))
+    ? (get("status") as "ACTIVE" | "DRAFT" | "CLOSED")
+    : undefined;
+  const studentStatusFilter = role === "STUDENT" && STUDENT_STATUSES.includes(get("status"))
+    ? get("status")
+    : "";
+
+  const orderBy =
+    sort === "oldest"  ? { createdAt: "asc"  as const } :
+    sort === "dueDate" ? { dueDate:   "asc"  as const } :
+    sort === "title"   ? { title:     "asc"  as const } :
+                         { createdAt: "desc" as const };
+
   const assignments = await db.assignment.findMany({
     where:
       role === "TEACHER"
-        ? { teacherId: userId }
-        : { OR: [{ studentId: userId }, { studentId: null }], status: "ACTIVE" },
+        ? {
+            teacherId: userId,
+            ...(skill    ? { skillType: skill as never }   : {}),
+            ...(dbStatus ? { status: dbStatus }            : {}),
+            ...(q        ? { title: { contains: q, mode: "insensitive" } } : {}),
+          }
+        : {
+            OR: [{ studentId: userId }, { studentId: null }],
+            status: "ACTIVE",
+            ...(skill ? { skillType: skill as never } : {}),
+            ...(q     ? { title: { contains: q, mode: "insensitive" } } : {}),
+          },
     include: {
       teacher:     { select: { id: true, name: true } },
       student:     { select: { id: true, name: true } },
       _count:      { select: { submissions: true } },
       submissions: role === "STUDENT" ? { where: { studentId: userId }, take: 1 } : false,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy,
   });
 
+  // Student status post-filter
+  const filtered = studentStatusFilter
+    ? assignments.filter((a) => {
+        const submitted = "submissions" in a && Array.isArray(a.submissions) && a.submissions.length > 0;
+        const overdue   = isOverdue(a.dueDate);
+        if (studentStatusFilter === "submitted") return submitted;
+        if (studentStatusFilter === "overdue")   return !submitted && overdue;
+        if (studentStatusFilter === "pending")   return !submitted && !overdue;
+        return true;
+      })
+    : assignments;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Assignments</h1>
           <p className="mt-0.5 text-sm" style={{ color: "var(--text-3)" }}>
-            {assignments.length} {assignments.length === 1 ? "assignment" : "assignments"} found
+            {assignments.length} {assignments.length === 1 ? "assignment" : "assignments"} total
           </p>
         </div>
         {role === "TEACHER" && (
@@ -60,8 +113,13 @@ export default async function AssignmentsPage() {
         )}
       </div>
 
+      {/* Filter bar */}
+      <Suspense>
+        <AssignmentsFilterBar role={role} total={filtered.length} />
+      </Suspense>
+
       {/* List */}
-      {assignments.length === 0 ? (
+      {filtered.length === 0 ? (
         <div
           className="flex flex-col items-center justify-center rounded-2xl py-20 gap-4"
           style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
@@ -73,8 +131,11 @@ export default async function AssignmentsPage() {
             <BookOpen className="h-8 w-8 opacity-20" style={{ color: "var(--text-3)" }} />
           </div>
           <div className="text-center">
-            <p className="font-medium" style={{ color: "var(--text-2)" }}>No assignments yet</p>
-            {role === "TEACHER" && (
+            <p className="font-medium" style={{ color: "var(--text-2)" }}>No assignments found</p>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-3)" }}>
+              Try adjusting your filters
+            </p>
+            {role === "TEACHER" && assignments.length === 0 && (
               <Link href="/assignments/new" className="mt-3 inline-block">
                 <Button size="sm">Create your first assignment</Button>
               </Link>
@@ -83,7 +144,7 @@ export default async function AssignmentsPage() {
         </div>
       ) : (
         <div className="grid gap-3">
-          {assignments.map((a, i) => {
+          {filtered.map((a, i) => {
             const overdue   = isOverdue(a.dueDate);
             const submitted = role === "STUDENT" && "submissions" in a && Array.isArray(a.submissions) && a.submissions.length > 0;
             const skill     = SKILL_META[a.skillType ?? "WRITING"] ?? SKILL_META.WRITING;
