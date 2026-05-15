@@ -154,6 +154,7 @@ model User {
   userBadges            UserBadge[]
   xpLogs                XpLog[]
   taughtLessons         LiveLesson[] @relation("TeacherLessons")
+  gameProgress          GameProgress[]
 
   @@map("users")
 }
@@ -330,4 +331,73 @@ model AuditLog {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("audit_logs")
+}
+
+// ─── PRACTICE (GAME) ──────────────────────────────────────────────────────────
+
+model GameModule {
+  id    String     @id @default(cuid())
+  slug  String     @unique  // "vocabulary", "grammar"
+  name  String
+  icon  String
+  order Int
+  units GameUnit[]
+
+  @@map("game_modules")
+}
+
+model GameUnit {
+  id          String       @id @default(cuid())
+  moduleId    String
+  title       String
+  description String?
+  icon        String       @default("📚")
+  color       String       @default("#6366f1")
+  order       Int
+  module      GameModule   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  lessons     GameLesson[]
+
+  @@map("game_units")
+}
+
+model GameLesson {
+  id        String         @id @default(cuid())
+  unitId    String
+  title     String
+  order     Int
+  xpReward  Int            @default(10)
+  unit      GameUnit       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  questions GameQuestion[]
+  progress  GameProgress[]
+
+  @@map("game_lessons")
+}
+
+model GameQuestion {
+  id       String     @id @default(cuid())
+  lessonId String
+  type     String     // "mcq" | "fill" | "match"
+  question String
+  options  Json?      // string[]
+  answer   String
+  hint     String?
+  order    Int
+  lesson   GameLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("game_questions")
+}
+
+model GameProgress {
+  id          String     @id @default(cuid())
+  userId      String
+  lessonId    String
+  completed   Boolean    @default(false)
+  stars       Int        @default(0)
+  xpEarned    Int        @default(0)
+  completedAt DateTime?
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson      GameLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@map("game_progress")
 }

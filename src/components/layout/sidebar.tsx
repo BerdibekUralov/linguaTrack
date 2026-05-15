@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, BookOpen, FileText,
-  TrendingUp, Users, GraduationCap, X, ShieldCheck, Trophy, Video, HelpCircle,
+  TrendingUp, Users, GraduationCap, X, ShieldCheck, Trophy, Video, HelpCircle, Gamepad2,
 } from "lucide-react";
 import { UserXpWidget } from "@/components/gamification/user-xp-widget";
 
@@ -19,6 +19,7 @@ const navItems = [
   { href: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard, roles: ["STUDENT", "TEACHER", "ADMIN"] },
   { href: "/assignments", label: "Assignments",  icon: BookOpen,         roles: ["STUDENT", "TEACHER", "ADMIN"] },
   { href: "/submissions", label: "Submissions",  icon: FileText,         roles: ["STUDENT"] },
+  { href: "/practice",   label: "Practice",     icon: Gamepad2,         roles: ["STUDENT"] },
   { href: "/progress",    label: "Progress",     icon: TrendingUp,       roles: ["STUDENT", "TEACHER", "ADMIN"] },
   { href: "/lessons",     label: "Lessons",      icon: Video,            roles: ["STUDENT", "TEACHER"] },
   { href: "/leaderboard", label: "Leaderboard",  icon: Trophy,           roles: ["STUDENT", "TEACHER", "ADMIN"] },
